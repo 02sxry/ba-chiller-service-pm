@@ -47,6 +47,7 @@ Operational integration milestone: Google provider adapter และ container b
 - Google Drive upload ตรวจ folder kind, ค้นหาโฟลเดอร์เป้าหมายใต้ root และปฏิเสธ missing/duplicate folder ก่อน upload
 - LINE Messaging API production adapter แบบ opt-in พร้อม HTTP error handling และ mock fallback
 - Gemini intent provider แบบ opt-in พร้อม JSON contract validation, temperature 0 และ safe deterministic fallback
+- Schedule intake เรียก Gemini เฉพาะรายการที่ deterministic parser ระบุว่า NEEDS_REVIEW และเก็บเป็นคำแนะนำแยกจากข้อมูล parsed หลัก
 - Deterministic LINE Q&A รองรับเมนูช่วยเหลือและดูนัดหมายของ hospital group ที่ authorize แล้ว
 - LINE Q&A ใช้ notification outbox เดิม, มี idempotency ต่อ webhook event และไม่ส่งจริงเมื่อ kill switch เปิด
 
@@ -67,6 +68,7 @@ Operational integration milestone: Google provider adapter และ container b
 - Google Drive folder routing ผ่าน contract test โดยไม่ upload ไฟล์จริง
 - LINE provider payload/auth/error handling ผ่าน contract tests โดยไม่เรียก LINE จริง
 - Gemini valid/invalid response handling ผ่าน contract tests โดยไม่เรียก Gemini จริง
+- Intake AI suggestion ถูกเก็บแบบ review-only และไม่เปลี่ยน state/นัดหมายอัตโนมัติ
 - Backend และ frontend production Docker image build ผ่าน
 - Production Compose configuration validation ผ่าน
 - Full Compose cold start, HTTPS reverse proxy, Admin bootstrap, login และ protected API smoke test ผ่าน
@@ -90,7 +92,7 @@ Operational integration milestone: Google provider adapter และ container b
 ## Next actions
 
 1. เพิ่ม Google export reconciliation หลายแถวและ conflict resolution UI
-2. เชื่อม Gemini provider เข้ากับ intake เฉพาะกรณี deterministic parser จับ intent ไม่ได้
+2. เพิ่ม Admin UI สำหรับ approve/reject AI suggestion โดยไม่เขียนทับ parsed source
 3. เพิ่ม browser E2E เมื่อมี browser runtime
 4. ทดสอบ public TLS/tunnel กับ LINE Verify Webhook หลังได้รับ credentials และอนุมัติ network
 5. ทำ acceptance rehearsal ด้วยข้อมูลจำลองก่อนเชื่อม credentials จริง

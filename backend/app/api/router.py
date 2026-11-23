@@ -65,6 +65,7 @@ from app.domain.schemas import (
     TokenResponse,
     UserView,
 )
+from app.integrations.gemini import build_intent_provider
 from app.integrations.google import build_google_provider
 from app.integrations.line import LineQuestionIntent, parse_line_question, verify_signature
 from app.services.appointments import (
@@ -376,6 +377,11 @@ def approve_drafts(request: BulkApprovalRequest, db: Db, admin: AdminUser) -> li
 @router.post("/intakes/text", status_code=201, tags=["intake"])
 def text_intake(request: TextIntakeRequest, db: Db, _: AdminUser) -> dict:
     intake = create_text_intake(db, request.source_event_id, request.text, request.received_at)
+    if intake.state.value == "NEEDS_REVIEW" and "ai_suggestion" not in intake.parsed_data:
+        suggestion = build_intent_provider(get_settings()).extract(request.text)
+        if suggestion["available"]:
+            intake.parsed_data = {**intake.parsed_data, "ai_suggestion": suggestion}
+            intake.validation_errors = [*intake.validation_errors, "มีคำแนะนำจาก AI ต้องให้ Admin ตรวจสอบก่อนใช้งาน"]
     db.commit()
     return {"id": intake.id, "state": intake.state, "parsed_data": intake.parsed_data, "errors": intake.validation_errors}
 
