@@ -77,6 +77,7 @@ Docker build ครั้งแรกใน execution environment ติด prox
 - Alembic: migration `upgrade head` ผ่าน
 - Google operations retry action: ผ่าน backend regression และ frontend TypeScript/Vite build
 - LINE Q&A parser และ bounded reply payload: ผ่าน
+- Google Sheets stable row update: ผ่าน provider contract test สำหรับ existing row และไม่เพิ่มข้อมูลซ้ำเมื่อ retry
 
 การทดสอบครั้งนี้ไม่ใช้ Google credentials และไม่มีการส่งข้อมูลออกไปยัง Google Workspace จริง
 

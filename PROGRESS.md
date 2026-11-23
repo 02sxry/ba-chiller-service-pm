@@ -43,6 +43,7 @@ Operational integration milestone: Google provider adapter และ container b
 - Google provider factory แยก mock/production ชัดเจน โดยค่าเริ่มต้นยังปลอดภัยเป็น mock
 - เพิ่ม Google API SDK ใน lockfile และตั้งค่า `GOOGLE_SERVICE_ACCOUNT_FILE` / `GOOGLE_USE_REAL_PROVIDER`
 - Google operations มีปุ่ม Admin สั่งส่งซ้ำ/ลองใหม่สำหรับ outbound sync event พร้อม audit log
+- Google Sheets export ใช้ `row_key`/`record_id` ค้นหาและ update แถวเดิมก่อน append ป้องกัน retry สร้างข้อมูลซ้ำ
 - Deterministic LINE Q&A รองรับเมนูช่วยเหลือและดูนัดหมายของ hospital group ที่ authorize แล้ว
 - LINE Q&A ใช้ notification outbox เดิม, มี idempotency ต่อ webhook event และไม่ส่งจริงเมื่อ kill switch เปิด
 
@@ -59,6 +60,7 @@ Operational integration milestone: Google provider adapter และ container b
 - `npm ci && npm run build` ผ่าน TypeScript และ Vite production build
 - Google retry endpoint และ Sync operations UI ผ่าน regression suite เดิมโดยไม่เพิ่ม schema/migration
 - LINE question parser, appointment lookup และ bounded text payload ผ่าน tests
+- Google Sheets stable-row update ผ่าน provider contract test โดยไม่ใช้ workbook จริง
 - Backend และ frontend production Docker image build ผ่าน
 - Production Compose configuration validation ผ่าน
 - Full Compose cold start, HTTPS reverse proxy, Admin bootstrap, login และ protected API smoke test ผ่าน
@@ -81,7 +83,7 @@ Operational integration milestone: Google provider adapter และ container b
 
 ## Next actions
 
-1. เพิ่ม Google export reconciliation แบบ stable row update และ conflict resolution UI
+1. เพิ่ม Google export reconciliation หลายแถวและ conflict resolution UI
 2. เพิ่ม LINE reply adapter จริงเมื่อได้รับ channel credentials และอนุมัติการส่งข้อความ
 3. เพิ่ม browser E2E เมื่อมี browser runtime
 4. ทดสอบ public TLS/tunnel กับ LINE Verify Webhook หลังได้รับ credentials และอนุมัติ network
