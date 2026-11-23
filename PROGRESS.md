@@ -38,10 +38,11 @@ Operational integration milestone: LINE actions, Google staging sync และ c
 - Production Compose cold start รอ database migration/backend health ก่อนเริ่ม worker และ scheduler
 - Caddy รับ `APP_HOST` และข้าม corporate proxy สำหรับ internal service names
 - Interactive Admin bootstrap CLI ภายใน backend container พร้อม email/password validation
+- Worker/scheduler interval guards และ scheduler fast retry หลัง database outage
 
 ## Tests executed
 
-- `pytest -q` กับ PostgreSQL 17 จริง ผ่าน 36 tests
+- `pytest -q` กับ PostgreSQL 17 จริง ผ่าน 39 tests
 - `ruff check app tests alembic --exclude alembic/versions` ผ่าน
 - `alembic upgrade head` ผ่าน
 - `alembic check` ผ่านและไม่พบ schema drift
@@ -51,6 +52,8 @@ Operational integration milestone: LINE actions, Google staging sync และ c
 - Production Compose configuration validation ผ่าน
 - Full Compose cold start, HTTPS reverse proxy, Admin bootstrap, login และ protected API smoke test ผ่าน
 - Database backup/checksum/isolated restore rehearsal ผ่าน และมีสคริปต์ป้องกัน restore ทับชื่อฐาน production
+- Database outage/recovery ผ่าน: processes ไม่ตาย, backend กลับ healthy, worker cycle และ scheduler retry ฟื้นเอง
+- ลบ embedded development credentials ออกจาก application config และบังคับ production secret แบบ explicit
 
 ## ข้อจำกัดและงานคงเหลือ
 
@@ -58,7 +61,7 @@ Operational integration milestone: LINE actions, Google staging sync และ c
 - Natural-language LINE Q&A ยังต้องต่อจาก provider contract
 - Gemini production adapter ยังปิดใช้งาน
 - Playwright browser test ยังรันไม่ได้ เพราะ Cloud Desktop ไม่มี browser runtime และ CDN ดาวน์โหลด Chromium ตอบ 403
-- Network outage/worker recovery และ webhook relay ยังไม่ได้รัน
+- Public webhook relay และ browser E2E ยังไม่ได้รัน
 - Private GitHub repository พร้อมใช้งานผ่าน GitHub connector แม้ GitHub CLI token ยังใช้ไม่ได้
 - ไม่มี credentials จริง จึงไม่ได้ทดสอบหรือส่ง LINE/Google/Gemini จริง
 
@@ -66,8 +69,8 @@ Operational integration milestone: LINE actions, Google staging sync และ c
 
 1. ทำ Google Sheets/Drive production adapters และ conflict resolution UI
 2. ทำ deterministic LINE Q&A และ reply adapter
-3. เพิ่ม worker crash/retry tests และ browser E2E
-4. ทดสอบ network outage/worker recovery และ webhook relay ใน isolated environment
+3. เพิ่ม browser E2E เมื่อมี browser runtime
+4. ทดสอบ public webhook relay ใน isolated environment
 5. ทำ acceptance rehearsal ด้วยข้อมูลจำลองก่อนเชื่อม credentials จริง
 
 ## Latest Git commit

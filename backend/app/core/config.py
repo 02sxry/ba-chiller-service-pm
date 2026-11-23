@@ -1,8 +1,13 @@
+import secrets
 from functools import lru_cache
 from typing import Literal
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _development_secret() -> str:
+    return f"generated-development-{secrets.token_urlsafe(32)}"
 
 
 class Settings(BaseSettings):
@@ -11,8 +16,8 @@ class Settings(BaseSettings):
     app_name: str = "BA Chiller Service & PM Assistant"
     app_env: Literal["development", "test", "production"] = "development"
     api_prefix: str = "/api/v1"
-    secret_key: str = "development-only-secret-change-before-production"
-    database_url: str = "postgresql+psycopg://ba_chiller:ba_chiller@localhost:5432/ba_chiller"
+    secret_key: str = Field(default_factory=_development_secret)
+    database_url: str = "postgresql+psycopg://localhost/ba_chiller"
     frontend_origin: str = "http://localhost:5173"
     timezone: str = "Asia/Bangkok"
     access_token_minutes: int = 480
@@ -26,11 +31,16 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     upload_max_bytes: int = 10 * 1024 * 1024
     slot_warning_months: int = Field(default=2, ge=0, le=12)
+    worker_poll_seconds: int = Field(default=5, ge=1, le=300)
+    scheduler_interval_seconds: int = Field(default=3600, ge=30, le=86400)
+    scheduler_error_retry_seconds: int = Field(default=30, ge=1, le=300)
 
     @model_validator(mode="after")
     def production_guards(self) -> "Settings":
-        if self.app_env == "production" and len(self.secret_key) < 32:
-            raise ValueError("SECRET_KEY ต้องมีอย่างน้อย 32 ตัวอักษรใน production")
+        if self.app_env == "production" and (
+            len(self.secret_key) < 32 or self.secret_key.startswith("generated-development-")
+        ):
+            raise ValueError("ต้องกำหนด SECRET_KEY อย่างน้อย 32 ตัวอักษรใน production")
         return self
 
     @property

@@ -48,12 +48,13 @@ def process_once() -> int:
 
 
 def main() -> None:
+    settings = get_settings()
     while True:
         try:
             process_once()
         except Exception as exc:
             log.exception("worker_cycle_failed", error_type=type(exc).__name__)
-        time.sleep(5)
+        time.sleep(settings.worker_poll_seconds)
 
 
 if __name__ == "__main__":

@@ -24,6 +24,8 @@ docker build --secret id=ca,src=/path/to/company-ca.crt -t ba-chiller-frontend .
 
 Dashboard ใช้ได้ใน LAN เมื่อ internet ขัดข้อง ส่วน LINE และ Google jobs จะรอ retry
 
+ค่า `WORKER_POLL_SECONDS`, `SCHEDULER_INTERVAL_SECONDS` และ `SCHEDULER_ERROR_RETRY_SECONDS` ควบคุมรอบทำงาน โดยค่าเริ่มต้น scheduler จะลองใหม่ภายใน 30 วินาทีหลัง database/network error แทนการรอรอบปกติหนึ่งชั่วโมง
+
 ## Webhook gateway
 
 FortiGate VPN อย่างเดียวไม่ทำให้ LINE เรียก private LAN endpoint ได้ ใช้ public HTTPS relay ที่ตรวจ path, จำกัดขนาด body, rate limit และส่งต่อผ่าน outbound authenticated tunnel ไป local server การตรวจ LINE signature ยังคงทำซ้ำที่ FastAPI ห้ามเปิด PostgreSQLหรือ administrative ports ผ่าน gateway

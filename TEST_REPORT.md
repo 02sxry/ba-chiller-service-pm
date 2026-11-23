@@ -6,7 +6,7 @@
 
 | ชุดทดสอบ | ผล | หลักฐาน |
 |---|---:|---|
-| Backend business rules/API | 36 passed | pytest กับ PostgreSQL 17 container, 0 failed |
+| Backend business rules/API | 39 passed | pytest กับ PostgreSQL 17 container, 0 failed |
 | Python lint | ผ่าน | Ruff ตรวจ app, tests และ Alembic environment |
 | PostgreSQL migration | ผ่าน | Alembic upgrade revision `1b6004596e27` |
 | Schema drift | ผ่าน | Alembic check รายงาน `No new upgrade operations detected` |
@@ -23,6 +23,9 @@
 | Admin bootstrap/login | ผ่าน | สร้าง Admin แบบ interactive ใน container, รับ bearer token และเรียก protected API HTTP 200 |
 | Backup/restore rehearsal | ผ่าน | custom-format dump + SHA-256, restore เข้า isolated database และ counts/ข้อมูลตรงต้นทาง |
 | Restore safety guard | ผ่าน | สคริปต์ปฏิเสธ target ที่ไม่ขึ้นต้นด้วย `ba_chiller_restore` |
+| Database outage recovery | ผ่าน | หยุด PostgreSQL จริง; worker/scheduler จับ error โดยไม่ตาย และฟื้นเองหลัง database healthy |
+| Scheduler fast retry | ผ่าน | หลัง outage scheduler retry สำเร็จใน 30 วินาที ไม่รอรอบปกติ 1 ชั่วโมง |
+| Production secret guard | ผ่าน | production ปฏิเสธ generated development secret และยอมรับ explicit secret ที่ยาวตามเกณฑ์ |
 
 ## Business rules ที่ทดสอบ
 
@@ -54,7 +57,7 @@
 - Cloud Desktop เปิด browser ไม่ได้เพราะ browser runtime unavailable
 - Playwright ดาวน์โหลด Chromium ไม่ได้เพราะ CDN ตอบ HTTP 403 จึงยังไม่มี visual/E2E browser result
 - Real LINE, Google Sheets, Google Drive และ Gemini ไม่ได้ทดสอบเพราะไม่มี credentials และไม่มีสิทธิ์ส่งจริง
-- Network outage recovery และ webhook relay ยังไม่ได้ทดสอบ
+- Public webhook relay ยังไม่ได้ทดสอบ
 
 Docker build ครั้งแรกใน execution environment ติด proxy CA แบบ self-signed ทั้ง PyPI และ npm registry จากนั้น build ผ่านเมื่อส่ง CA เป็น BuildKit secret; certificate ไม่ถูก copy หรือฝังใน image
 

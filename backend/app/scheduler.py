@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 
 import structlog
 
+from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.services.planning import generate_next_year_drafts
 
@@ -19,12 +20,15 @@ def run_scheduled_tasks() -> None:
 
 
 def main() -> None:
+    settings = get_settings()
     while True:
+        sleep_seconds = settings.scheduler_interval_seconds
         try:
             run_scheduled_tasks()
         except Exception as exc:
             log.exception("scheduler_cycle_failed", error_type=type(exc).__name__)
-        time.sleep(3600)
+            sleep_seconds = settings.scheduler_error_retry_seconds
+        time.sleep(sleep_seconds)
 
 
 if __name__ == "__main__":

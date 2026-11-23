@@ -2,7 +2,7 @@
 
 ## สถานะ
 
-ระบบผ่าน milestone สำหรับ core domain, operational integration และ local production runtime ยังไม่พร้อมรับ development acceptance ตาม Definition of Done ฉบับเต็ม เนื่องจาก production adapters, outage recovery และ browser E2E ยังไม่ครบ
+ระบบผ่าน milestone สำหรับ core domain, operational integration และ local production runtime ยังไม่พร้อมรับ development acceptance ตาม Definition of Done ฉบับเต็ม เนื่องจาก production adapters, public webhook relay และ browser E2E ยังไม่ครบ
 
 ## ใช้งานได้แล้ว
 
@@ -24,14 +24,15 @@
 - Backend/frontend production image build และ Compose configuration validation
 - Full Compose cold start, HTTPS proxy และ Admin bootstrap/login smoke path
 - Database backup/checksum และ isolated restore rehearsal
+- Database outage/recovery ของ backend, worker และ scheduler
 
 ## สิ่งที่ทดสอบจริง
 
-ดู `TEST_REPORT.md` ผลล่าสุดคือ backend 36 tests ผ่าน, lint/build/migration/schema check/API health, Docker image build และ full Compose smoke ผ่าน
+ดู `TEST_REPORT.md` ผลล่าสุดคือ backend 39 tests ผ่าน, lint/build/migration/schema check/API health, Docker image build, full Compose smoke และ database recovery ผ่าน
 
 ## สิ่งที่ยังไม่ยืนยัน
 
-Real external integrations, browser E2E และ worker outage recovery
+Real external integrations, public webhook relay และ browser E2E
 
 ## เริ่มระบบ
 
