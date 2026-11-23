@@ -14,6 +14,7 @@
 6. คง kill switch ไว้จนผ่าน production readiness review
 
 Webhook ตรวจ HMAC-SHA256 บน raw body, deduplicate ด้วย `webhookEventId` และตรวจ action token, revision และ group authorization ที่ server
+ดู gateway controls และ isolated rehearsal ใน [LINE Webhook Relay](WEBHOOK_RELAY.md)
 
 ## Google Sheets
 

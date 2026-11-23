@@ -54,6 +54,9 @@ Operational integration milestone: LINE actions, Google staging sync และ c
 - Database backup/checksum/isolated restore rehearsal ผ่าน และมีสคริปต์ป้องกัน restore ทับชื่อฐาน production
 - Database outage/recovery ผ่าน: processes ไม่ตาย, backend กลับ healthy, worker cycle และ scheduler retry ฟื้นเอง
 - ลบ embedded development credentials ออกจาก application config และบังคับ production secret แบบ explicit
+- Isolated LINE webhook relay template พร้อม path/method/body/rate controls และ Docker DNS re-resolution
+- Webhook relay rehearsal ผ่าน valid/invalid HMAC, deduplication, rate limit, body limit และ backend recreate
+- Frontend Nginx re-resolve backend ผ่าน Docker DNS; HTTPS UI/API ยัง 200 หลัง backend container recreate
 
 ## ข้อจำกัดและงานคงเหลือ
 
@@ -61,7 +64,7 @@ Operational integration milestone: LINE actions, Google staging sync และ c
 - Natural-language LINE Q&A ยังต้องต่อจาก provider contract
 - Gemini production adapter ยังปิดใช้งาน
 - Playwright browser test ยังรันไม่ได้ เพราะ Cloud Desktop ไม่มี browser runtime และ CDN ดาวน์โหลด Chromium ตอบ 403
-- Public webhook relay และ browser E2E ยังไม่ได้รัน
+- Public internet/TLS tunnel จริงและ browser E2E ยังไม่ได้รัน
 - Private GitHub repository พร้อมใช้งานผ่าน GitHub connector แม้ GitHub CLI token ยังใช้ไม่ได้
 - ไม่มี credentials จริง จึงไม่ได้ทดสอบหรือส่ง LINE/Google/Gemini จริง
 
@@ -70,7 +73,7 @@ Operational integration milestone: LINE actions, Google staging sync และ c
 1. ทำ Google Sheets/Drive production adapters และ conflict resolution UI
 2. ทำ deterministic LINE Q&A และ reply adapter
 3. เพิ่ม browser E2E เมื่อมี browser runtime
-4. ทดสอบ public webhook relay ใน isolated environment
+4. ทดสอบ public TLS/tunnel กับ LINE Verify Webhook หลังได้รับ credentials และอนุมัติ network
 5. ทำ acceptance rehearsal ด้วยข้อมูลจำลองก่อนเชื่อม credentials จริง
 
 ## Latest Git commit

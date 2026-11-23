@@ -2,7 +2,7 @@
 
 ## สถานะ
 
-ระบบผ่าน milestone สำหรับ core domain, operational integration และ local production runtime ยังไม่พร้อมรับ development acceptance ตาม Definition of Done ฉบับเต็ม เนื่องจาก production adapters, public webhook relay และ browser E2E ยังไม่ครบ
+ระบบผ่าน milestone สำหรับ core domain, operational integration และ local production runtime ยังไม่พร้อมรับ development acceptance ตาม Definition of Done ฉบับเต็ม เนื่องจาก production adapters, public TLS/tunnel จริง และ browser E2E ยังไม่ครบ
 
 ## ใช้งานได้แล้ว
 
@@ -25,6 +25,7 @@
 - Full Compose cold start, HTTPS proxy และ Admin bootstrap/login smoke path
 - Database backup/checksum และ isolated restore rehearsal
 - Database outage/recovery ของ backend, worker และ scheduler
+- Isolated webhook relay controls, HMAC/dedup และ backend restart recovery
 
 ## สิ่งที่ทดสอบจริง
 
@@ -32,7 +33,7 @@
 
 ## สิ่งที่ยังไม่ยืนยัน
 
-Real external integrations, public webhook relay และ browser E2E
+Real external integrations, public TLS/tunnel และ browser E2E
 
 ## เริ่มระบบ
 

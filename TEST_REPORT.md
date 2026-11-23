@@ -26,6 +26,10 @@
 | Database outage recovery | ผ่าน | หยุด PostgreSQL จริง; worker/scheduler จับ error โดยไม่ตาย และฟื้นเองหลัง database healthy |
 | Scheduler fast retry | ผ่าน | หลัง outage scheduler retry สำเร็จใน 30 วินาที ไม่รอรอบปกติ 1 ชั่วโมง |
 | Production secret guard | ผ่าน | production ปฏิเสธ generated development secret และยอมรับ explicit secret ที่ยาวตามเกณฑ์ |
+| Webhook relay controls | ผ่าน | wrong path 404, wrong method 403, body เกิน 1 MiB 413 และ burst เกิน limit 429 |
+| Webhook HMAC/dedup | ผ่าน | valid signature accepted 1 ครั้ง, duplicate accepted 0 และ invalid signature 401 |
+| Relay backend recovery | ผ่าน | relay resolve Docker DNS ใหม่หลัง backend recreate และกลับมาส่งต่อ HTTP 200 |
+| Frontend proxy recovery | ผ่าน | recreate backend container แล้ว HTTPS frontend/API กลับ HTTP 200 โดยไม่ recreate frontend |
 
 ## Business rules ที่ทดสอบ
 
@@ -57,7 +61,7 @@
 - Cloud Desktop เปิด browser ไม่ได้เพราะ browser runtime unavailable
 - Playwright ดาวน์โหลด Chromium ไม่ได้เพราะ CDN ตอบ HTTP 403 จึงยังไม่มี visual/E2E browser result
 - Real LINE, Google Sheets, Google Drive และ Gemini ไม่ได้ทดสอบเพราะไม่มี credentials และไม่มีสิทธิ์ส่งจริง
-- Public webhook relay ยังไม่ได้ทดสอบ
+- Public internet/TLS tunnel และ LINE Verify Webhook จริงยังไม่ได้ทดสอบ
 
 Docker build ครั้งแรกใน execution environment ติด proxy CA แบบ self-signed ทั้ง PyPI และ npm registry จากนั้น build ผ่านเมื่อส่ง CA เป็น BuildKit secret; certificate ไม่ถูก copy หรือฝังใน image
 
