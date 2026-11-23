@@ -1,0 +1,67 @@
+from enum import StrEnum
+
+
+class Role(StrEnum):
+    ADMIN = "ADMIN"
+    VIEWER = "VIEWER"
+
+
+class DraftType(StrEnum):
+    HOSPITAL = "HOSPITAL"
+    EQUIPMENT = "EQUIPMENT"
+    PM_PLAN = "PM_PLAN"
+
+
+class DraftStatus(StrEnum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    MATCHED = "MATCHED"
+    REJECTED = "REJECTED"
+
+
+class PlanningMode(StrEnum):
+    AUTOMATIC = "AUTOMATIC"
+    MANUAL = "MANUAL"
+
+
+class IntakeState(StrEnum):
+    RECEIVED = "RECEIVED"
+    PARSED = "PARSED"
+    NEEDS_REVIEW = "NEEDS_REVIEW"
+    READY_FOR_APPROVAL = "READY_FOR_APPROVAL"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    CONVERTED_TO_APPOINTMENT = "CONVERTED_TO_APPOINTMENT"
+
+
+class AppointmentStatus(StrEnum):
+    DRAFT = "DRAFT"
+    PENDING_APPROVAL = "PENDING_APPROVAL"
+    PENDING_CONFIRMATION = "PENDING_CONFIRMATION"
+    CONFIRMED = "CONFIRMED"
+    RESCHEDULE_REQUESTED = "RESCHEDULE_REQUESTED"
+    CANCELLED = "CANCELLED"
+    SUPERSEDED = "SUPERSEDED"
+
+
+class ChangeSource(StrEnum):
+    ADMIN = "ADMIN"
+    HOSPITAL = "HOSPITAL"
+    TECHNICIAN = "TECHNICIAN"
+
+
+class NotificationStatus(StrEnum):
+    PENDING = "PENDING"
+    SENDING = "SENDING"
+    ACCEPTED = "ACCEPTED"
+    FAILED = "FAILED"
+    REVIEW_REQUIRED = "REVIEW_REQUIRED"
+
+
+class SyncStatus(StrEnum):
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    APPLIED = "APPLIED"
+    CONFLICT = "CONFLICT"
+    FAILED = "FAILED"
+
