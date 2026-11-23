@@ -40,6 +40,8 @@ docker compose --env-file .env -f deploy/local/compose.yaml exec backend python 
 
 ## ทดสอบ
 
+ถ้าต้องการทดลองทั้งระบบบนโน้ตบุ๊กด้วย Docker Desktop ให้ทำตาม [คู่มือทดลองบนโน้ตบุ๊ก](docs/LAPTOP_TEST.md)
+
 ```bash
 cd backend
 pytest -q

@@ -87,3 +87,5 @@ Docker build ครั้งแรกใน execution environment ติด prox
 
 การทดสอบครั้งนี้ไม่ใช้ Google credentials และไม่มีการส่งข้อมูลออกไปยัง Google Workspace จริง
 
+คู่มือทดลองบนโน้ตบุ๊กถูกเพิ่มใน `docs/LAPTOP_TEST.md` พร้อมคำสั่ง Windows PowerShell และ macOS/Linux
+
