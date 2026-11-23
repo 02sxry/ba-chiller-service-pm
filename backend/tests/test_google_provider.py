@@ -48,3 +48,23 @@ def test_real_provider_exports_rows_through_sheets_service() -> None:
     assert result.reference_id == "sheets:Hospitals_View:update:2"
     assert sheets.values_api.get_kwargs["spreadsheetId"] == "sheet-1"
     assert sheets.values_api.update_kwargs["range"] == "Hospitals_View!A2:C2"
+
+
+def test_drive_upload_rejects_missing_named_folder() -> None:
+    class Files:
+        def list(self, **kwargs):
+            self.query = kwargs["q"]
+            return SimpleNamespace(execute=lambda: {"files": []})
+
+    class Media:
+        def create(self, **kwargs):
+            raise AssertionError("ไม่ควร upload เมื่อไม่พบโฟลเดอร์")
+
+    provider = GoogleApiWorkspaceProvider(
+        Settings(google_spreadsheet_id="sheet-1", google_drive_root_folder_id="folder-1"),
+        sheets_service=SimpleNamespace(),
+        drive_service=SimpleNamespace(files=lambda: Files()),
+    )
+    result = provider.store_file("generated_reports", "report.xlsx", b"data")
+    assert result.success is False
+    assert "ไม่พบโฟลเดอร์" in result.error

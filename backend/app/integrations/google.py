@@ -3,6 +3,14 @@ from typing import Any, Protocol
 
 from app.core.config import Settings
 
+DRIVE_FOLDER_NAMES = {
+    "technician_schedules_inbox": "Technician_Schedules_Inbox",
+    "technician_schedules_processed": "Technician_Schedules_Processed",
+    "technician_schedules_rejected": "Technician_Schedules_Rejected",
+    "equipment_documents": "Equipment_Documents",
+    "generated_reports": "Generated_Reports",
+}
+
 
 def _column_label(index: int) -> str:
     label = ""
@@ -127,7 +135,19 @@ class GoogleApiWorkspaceProvider:
         try:
             from googleapiclient.http import MediaIoBaseUpload
 
-            metadata = {"name": name, "parents": [self.drive_root_folder_id], "description": f"BA Chiller/{folder_kind}"}
+            folder_name = DRIVE_FOLDER_NAMES.get(folder_kind.lower())
+            if not folder_name:
+                return GoogleResult(False, error=f"ไม่รู้จัก Google Drive folder kind: {folder_kind}")
+            query = (
+                f"'{self.drive_root_folder_id}' in parents and "
+                f"name = '{folder_name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+            )
+            folders = self.drive.files().list(q=query, spaces="drive", fields="files(id,name)").execute().get("files", [])
+            if not folders:
+                return GoogleResult(False, error=f"ไม่พบโฟลเดอร์ {folder_name} ใต้ Google Drive root")
+            if len(folders) > 1:
+                return GoogleResult(False, error=f"พบโฟลเดอร์ {folder_name} ซ้ำมากกว่า 1 รายการ")
+            metadata = {"name": name, "parents": [folders[0]["id"]], "description": f"BA Chiller/{folder_kind}"}
             media = MediaIoBaseUpload(BytesIO(content), mimetype="application/octet-stream", resumable=False)
             response = self.drive.files().create(body=metadata, media_body=media, fields="id,name").execute()
             return GoogleResult(True, reference_id=response["id"])
