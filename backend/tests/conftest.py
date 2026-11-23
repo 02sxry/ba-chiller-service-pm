@@ -15,7 +15,11 @@ def db() -> Session:
     engine = create_engine(os.environ["DATABASE_URL"])
     connection = engine.connect()
     transaction = connection.begin()
-    session = Session(bind=connection, expire_on_commit=False)
+    session = Session(
+        bind=connection,
+        expire_on_commit=False,
+        join_transaction_mode="create_savepoint",
+    )
     try:
         yield session
     finally:

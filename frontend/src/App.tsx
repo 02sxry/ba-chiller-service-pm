@@ -2,7 +2,7 @@ import { FormEvent, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Shell } from './components/Shell'
 import { login } from './lib/api'
-import { AppointmentsPage, ApprovalQueuePage, Dashboard, DraftsPage, EquipmentPage, HospitalsPage, Placeholder, PlannerPage } from './pages'
+import { AppointmentsPage, ApprovalQueuePage, Dashboard, DraftsPage, EquipmentPage, GoogleSyncPage, HospitalsPage, LineGroupsPage, Placeholder, PlannerPage, ReportsPage, SettingsPage } from './pages'
 
 const pages: Record<string, string> = {
   hospitals: 'โรงพยาบาล', equipment: 'ฐานข้อมูลอุปกรณ์', planner: 'วางแผน PM รายปี', slots: 'รอบ PM',
@@ -70,7 +70,11 @@ export default function App() {
         <Route path="/confirmations" element={<AppointmentsPage title="การยืนยันนัด" status="CONFIRMED" />} />
         <Route path="/reschedules" element={<AppointmentsPage title="คำขอเลื่อนนัด" status="RESCHEDULE_REQUESTED" />} />
         <Route path="/history" element={<AppointmentsPage title="ประวัตินัดหมาย" />} />
-        {Object.entries(pages).filter(([path]) => !['hospitals', 'equipment', 'planner', 'drafts', 'intakes', 'approvals', 'calendar', 'confirmations', 'reschedules', 'history'].includes(path)).map(([path, title]) => <Route key={path} path={`/${path}`} element={<Placeholder title={title} />} />)}
+        <Route path="/sheets" element={<GoogleSyncPage />} />
+        <Route path="/line-groups" element={<LineGroupsPage />} />
+        <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        {Object.entries(pages).filter(([path]) => !['hospitals', 'equipment', 'planner', 'drafts', 'intakes', 'approvals', 'calendar', 'confirmations', 'reschedules', 'history', 'sheets', 'line-groups', 'reports', 'settings'].includes(path)).map(([path, title]) => <Route key={path} path={`/${path}`} element={<Placeholder title={title} />} />)}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Shell>

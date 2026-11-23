@@ -13,6 +13,15 @@
 7. รัน `docker compose -f deploy/local/compose.yaml up -d`
 8. ตรวจ `/api/v1/health`, worker status, volumes และ log rotation
 
+ถ้าองค์กรใช้ TLS inspection และ build ติด `SELF_SIGNED_CERT_IN_CHAIN` ให้ส่ง corporate CA เป็น BuildKit secret โดยไม่ copy certificate เข้า repository หรือ image:
+
+```bash
+docker build --secret id=ca,src=/path/to/company-ca.crt -t ba-chiller-backend ./backend
+docker build --secret id=ca,src=/path/to/company-ca.crt -t ba-chiller-frontend ./frontend
+```
+
+ห้ามแก้ด้วยการปิด TLS verification หรือใช้ `--trusted-host`
+
 Dashboard ใช้ได้ใน LAN เมื่อ internet ขัดข้อง ส่วน LINE และ Google jobs จะรอ retry
 
 ## Webhook gateway

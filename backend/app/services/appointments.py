@@ -38,7 +38,14 @@ def _queue_notification(
     destination_id: str,
     appointment: Appointment,
     revision: AppointmentRevision,
+    action_token: str | None = None,
 ) -> NotificationJob:
+    actions = None
+    if action_token:
+        actions = {
+            "confirm": f"action=confirm&token={action_token}",
+            "reschedule": f"action=reschedule&token={action_token}",
+        }
     job = NotificationJob(
         idempotency_key=f"{kind}:{appointment.id}:{revision.id}",
         kind=kind,
@@ -50,6 +57,7 @@ def _queue_notification(
             "revision_id": str(revision.id),
             "scheduled_date": revision.scheduled_date.isoformat(),
             "service_type": revision.service_type,
+            "actions": actions,
         },
         status=NotificationStatus.PENDING,
     )
@@ -111,7 +119,7 @@ def approve_appointment(db: Session, request: AppointmentApproveRequest, admin: 
     ))
     _queue_notification(
         db, kind="APPOINTMENT_PROPOSAL", destination_id=mapping.line_group_id,
-        appointment=appointment, revision=revision,
+        appointment=appointment, revision=revision, action_token=raw_token,
     )
     record_audit(
         db, actor=admin, action="APPOINTMENT_APPROVED", entity_type="appointment",
@@ -126,13 +134,18 @@ def approve_appointment(db: Session, request: AppointmentApproveRequest, admin: 
 
 
 def _validate_action_token(
-    db: Session, token: str, line_group_id: str
+    db: Session,
+    token: str,
+    line_group_id: str,
+    allowed_actions: set[str],
 ) -> tuple[ActionToken, Appointment, AppointmentRevision]:
     action_token = db.scalar(
         select(ActionToken).where(ActionToken.token_hash == _hash_token(token)).with_for_update()
     )
     if not action_token or action_token.used_at or action_token.expires_at <= datetime.now(UTC):
         raise AppointmentError("ลิงก์ตอบรับไม่ถูกต้อง หมดอายุ หรือถูกใช้แล้ว")
+    if action_token.action not in allowed_actions:
+        raise AppointmentError("ลิงก์นี้ไม่รองรับการดำเนินการดังกล่าว")
     appointment = db.get(Appointment, action_token.appointment_id)
     revision = db.get(AppointmentRevision, action_token.revision_id)
     if not appointment or not revision or appointment.current_revision_id != revision.id:
@@ -151,7 +164,9 @@ def _validate_action_token(
 
 
 def confirm_appointment(db: Session, token: str, line_group_id: str) -> Appointment:
-    action_token, appointment, revision = _validate_action_token(db, token, line_group_id)
+    action_token, appointment, revision = _validate_action_token(
+        db, token, line_group_id, {"CONFIRM_OR_RESCHEDULE"}
+    )
     if appointment.status not in {AppointmentStatus.PENDING_CONFIRMATION, AppointmentStatus.RESCHEDULE_REQUESTED}:
         raise AppointmentError("สถานะนัดไม่รองรับการยืนยัน")
     appointment.status = AppointmentStatus.CONFIRMED
@@ -174,7 +189,12 @@ def request_reschedule(
     preferred_date: date | None,
     message: str | None,
 ) -> Appointment:
-    action_token, appointment, revision = _validate_action_token(db, token, line_group_id)
+    action_token, appointment, revision = _validate_action_token(
+        db,
+        token,
+        line_group_id,
+        {"CONFIRM_OR_RESCHEDULE", "RESCHEDULE_ONLY"},
+    )
     appointment.status = AppointmentStatus.RESCHEDULE_REQUESTED
     action_token.used_at = datetime.now(UTC)
     db.add(RescheduleRequest(
@@ -236,9 +256,17 @@ def technician_date_change(
     )
     if not mapping:
         raise AppointmentError("ไม่พบ LINE group สำหรับแจ้งวันนัดใหม่")
+    raw_token = secrets.token_urlsafe(32)
+    db.add(ActionToken(
+        token_hash=_hash_token(raw_token),
+        appointment_id=appointment.id,
+        revision_id=revision.id,
+        action="RESCHEDULE_ONLY",
+        expires_at=datetime.now(UTC) + timedelta(days=30),
+    ))
     _queue_notification(
         db, kind="TECHNICIAN_DATE_CHANGE", destination_id=mapping.line_group_id,
-        appointment=appointment, revision=revision,
+        appointment=appointment, revision=revision, action_token=raw_token,
     )
     record_audit(
         db, actor=admin, action="TECHNICIAN_DATE_CHANGE_APPROVED", entity_type="appointment",

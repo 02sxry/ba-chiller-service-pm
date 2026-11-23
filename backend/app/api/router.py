@@ -1,7 +1,8 @@
 import hashlib
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated
+from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Request, UploadFile
 from sqlalchemy import func, select, text
@@ -18,6 +19,7 @@ from app.domain.models import (
     AppointmentRevision,
     Equipment,
     Hospital,
+    LineGroupMapping,
     MasterDataDraft,
     NotificationJob,
     PMSlot,
@@ -43,8 +45,11 @@ from app.domain.schemas import (
     EquipmentView,
     HealthResponse,
     HospitalCreate,
+    HospitalSheetSubmission,
     HospitalView,
     IntakeView,
+    LineGroupCreate,
+    LineGroupView,
     LoginRequest,
     MatchHospitalDraftRequest,
     PlanApproveRequest,
@@ -55,10 +60,12 @@ from app.domain.schemas import (
     RevisionView,
     SlotRecommendation,
     SlotView,
+    SyncEventView,
     TextIntakeRequest,
     TokenResponse,
     UserView,
 )
+from app.integrations.google import MockGoogleWorkspaceProvider
 from app.integrations.line import verify_signature
 from app.services.appointments import (
     AppointmentError,
@@ -75,6 +82,7 @@ from app.services.drafts import (
     approve_plan_draft,
     match_hospital_draft,
 )
+from app.services.google_sync import SyncError, process_hospital_submission, process_outbound_event
 from app.services.intake import create_text_intake, parse_excel
 from app.services.matching import recommend_slots
 from app.services.planning import (
@@ -265,6 +273,51 @@ def create_equipment(request: EquipmentCreate, db: Db, admin: AdminUser) -> Equi
     db.commit()
     db.refresh(equipment)
     return equipment
+
+
+@router.get("/line-groups", response_model=list[LineGroupView], tags=["line"])
+def list_line_groups(db: Db, _: AdminUser) -> list[LineGroupMapping]:
+    return list(db.scalars(
+        select(LineGroupMapping).order_by(LineGroupMapping.group_type, LineGroupMapping.created_at)
+    ).all())
+
+
+@router.post("/line-groups", response_model=LineGroupView, status_code=201, tags=["line"])
+def create_line_group(request: LineGroupCreate, db: Db, admin: AdminUser) -> LineGroupMapping:
+    group_type = request.group_type.upper()
+    if group_type not in {"ADMIN", "TECHNICIAN", "HOSPITAL"}:
+        raise HTTPException(status_code=422, detail="group_type ต้องเป็น ADMIN, TECHNICIAN หรือ HOSPITAL")
+    if group_type == "HOSPITAL":
+        if not request.hospital_id or not db.get(Hospital, request.hospital_id):
+            raise HTTPException(status_code=422, detail="Hospital group ต้องผูกกับโรงพยาบาล")
+    elif request.hospital_id:
+        raise HTTPException(status_code=422, detail="Internal group ต้องไม่มี hospital_id")
+    mapping = LineGroupMapping(
+        line_group_id=request.line_group_id,
+        group_type=group_type,
+        hospital_id=request.hospital_id,
+    )
+    db.add(mapping)
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="LINE group นี้ลงทะเบียนแล้ว") from exc
+    record_audit(
+        db,
+        actor=admin,
+        action="LINE_GROUP_AUTHORIZED",
+        entity_type="line_group_mapping",
+        entity_id=mapping.id,
+        new_values={
+            "line_group_id": mapping.line_group_id,
+            "group_type": mapping.group_type,
+            "hospital_id": str(mapping.hospital_id) if mapping.hospital_id else None,
+        },
+    )
+    db.commit()
+    db.refresh(mapping)
+    return mapping
 
 
 @router.post("/plans/preview", response_model=PlanPreviewResponse, tags=["planning"])
@@ -496,6 +549,50 @@ def list_appointments(
     ]
 
 
+@router.post("/google-sync/hospitals", response_model=SyncEventView, tags=["google-sync"])
+def import_hospital_sheet_row(
+    request: HospitalSheetSubmission,
+    db: Db,
+    admin: AdminUser,
+) -> SyncEvent:
+    try:
+        event = process_hospital_submission(db, request.model_dump(mode="json"), admin)
+        db.commit()
+        db.refresh(event)
+        return event
+    except (SyncError, IntegrityError) as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.get("/google-sync/events", response_model=list[SyncEventView], tags=["google-sync"])
+def list_sync_events(
+    db: Db,
+    _: AdminUser,
+    status: SyncStatus | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
+) -> list[SyncEvent]:
+    query = select(SyncEvent).order_by(SyncEvent.created_at.desc()).limit(limit)
+    if status is not None:
+        query = query.where(SyncEvent.status == status)
+    return list(db.scalars(query).all())
+
+
+@router.post("/google-sync/events/{event_id}/run-mock", response_model=SyncEventView, tags=["google-sync"])
+def run_mock_sync_event(event_id: uuid.UUID, db: Db, _: AdminUser) -> SyncEvent:
+    event = db.scalar(select(SyncEvent).where(SyncEvent.id == event_id).with_for_update())
+    if not event:
+        raise HTTPException(status_code=404, detail="ไม่พบ sync event")
+    try:
+        process_outbound_event(db, event, MockGoogleWorkspaceProvider())
+        db.commit()
+        db.refresh(event)
+        return event
+    except SyncError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @router.post("/line/webhook", tags=["line"])
 async def line_webhook(
     request: Request,
@@ -510,6 +607,7 @@ async def line_webhook(
         raise HTTPException(status_code=401, detail="ลายเซ็น LINE ไม่ถูกต้อง")
     payload = await request.json()
     accepted = 0
+    action_results: list[dict[str, str]] = []
     for event in payload.get("events", []):
         event_id = event.get("webhookEventId")
         if not event_id:
@@ -521,9 +619,35 @@ async def line_webhook(
             payload_hash=hashlib.sha256(str(event).encode()).hexdigest(),
             processed_at=datetime.now(UTC),
         ))
+        if event.get("type") == "postback":
+            group_id = event.get("source", {}).get("groupId")
+            parameters = parse_qs(event.get("postback", {}).get("data", ""))
+            action = parameters.get("action", [None])[0]
+            token = parameters.get("token", [None])[0]
+            if not group_id or not action or not token:
+                action_results.append({"event_id": event_id, "result": "INVALID_POSTBACK"})
+            else:
+                try:
+                    if action == "confirm":
+                        confirm_appointment(db, token, group_id)
+                        action_results.append({"event_id": event_id, "result": "CONFIRMED"})
+                    elif action == "reschedule":
+                        preferred_date_text = event.get("postback", {}).get("params", {}).get("date")
+                        request_reschedule(
+                            db,
+                            token,
+                            group_id,
+                            date.fromisoformat(preferred_date_text) if preferred_date_text else None,
+                            "ขอเลื่อนนัดผ่าน LINE postback",
+                        )
+                        action_results.append({"event_id": event_id, "result": "RESCHEDULE_REQUESTED"})
+                    else:
+                        action_results.append({"event_id": event_id, "result": "UNKNOWN_ACTION"})
+                except (AppointmentError, ValueError) as exc:
+                    action_results.append({"event_id": event_id, "result": f"REJECTED: {exc}"})
         accepted += 1
     db.commit()
-    return {"accepted_events": accepted}
+    return {"accepted_events": accepted, "actions": action_results}
 
 
 @router.get("/dashboard", response_model=DashboardMetrics, tags=["reports"])

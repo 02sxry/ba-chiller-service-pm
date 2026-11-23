@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from app.domain.enums import AppointmentStatus, ChangeSource, DraftStatus, DraftType, PlanningMode, Role
+from app.domain.enums import AppointmentStatus, ChangeSource, DraftStatus, DraftType, PlanningMode, Role, SyncStatus
 
 
 class ORMModel(BaseModel):
@@ -289,4 +289,45 @@ class HealthResponse(BaseModel):
     status: str
     database: str
     integrations: dict[str, Any]
+
+
+class HospitalSheetSubmission(BaseModel):
+    row_key: str = Field(min_length=1, max_length=255)
+    record_id: uuid.UUID | None = None
+    expected_version: int | None = Field(default=None, ge=1)
+    operation: str
+    hospital_code: str | None = None
+    hospital_name: str | None = None
+    short_name: str | None = None
+    notes: str | None = None
+
+
+class SyncEventView(ORMModel):
+    id: uuid.UUID
+    idempotency_key: str
+    direction: str
+    entity_type: str
+    entity_id: uuid.UUID | None
+    payload: dict[str, Any]
+    expected_version: int | None
+    status: SyncStatus
+    attempts: int
+    last_error: str | None
+    version: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class LineGroupCreate(BaseModel):
+    line_group_id: str = Field(min_length=1, max_length=255)
+    group_type: str
+    hospital_id: uuid.UUID | None = None
+
+
+class LineGroupView(LineGroupCreate, ORMModel):
+    id: uuid.UUID
+    active: bool
+    version: int
+    created_at: datetime
+    updated_at: datetime
 

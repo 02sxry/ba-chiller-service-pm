@@ -164,6 +164,47 @@ export function ApprovalQueuePage() {
   return <><section className="page-heading"><div><p className="eyebrow">ADMIN APPROVAL</p><h1>ตารางจากช่างและคิวอนุมัติ</h1><p>Intake record ยังไม่ใช่นัดที่อนุมัติแล้ว</p></div></section><article className="panel"><div className="data-list">{query.data?.map((item) => <div key={item.id}><span className="code-chip">{item.source_type}</span><p><strong>{item.raw_text || item.source_event_id}</strong><small>{item.validation_errors.length ? item.validation_errors.join(' · ') : 'แยกข้อมูลแล้ว พร้อมตรวจสอบการจับคู่'}</small></p><i>{item.state}</i></div>)}{query.data?.length === 0 && <div className="empty-state">ยังไม่มีตารางจากช่าง</div>}</div></article></>
 }
 
+type SyncEvent = { id: string; direction: string; entity_type: string; status: string; attempts: number; last_error: string | null; created_at: string }
+export function GoogleSyncPage() {
+  const client = useQueryClient()
+  const query = useQuery({ queryKey: ['sync-events'], queryFn: () => api<SyncEvent[]>('/google-sync/events') })
+  const [form, setForm] = useState({ row_key: '', hospital_code: '', hospital_name: '', short_name: '' })
+  const submit = useMutation({
+    mutationFn: () => api('/google-sync/hospitals', { method: 'POST', body: JSON.stringify({ ...form, operation: 'CREATE', record_id: null, expected_version: null }) }),
+    onSuccess: () => { setForm({ row_key: '', hospital_code: '', hospital_name: '', short_name: '' }); client.invalidateQueries({ queryKey: ['sync-events'] }); client.invalidateQueries({ queryKey: ['hospitals'] }) },
+  })
+  return <><section className="page-heading"><div><p className="eyebrow">GOOGLE WORKSPACE</p><h1>Google Sheets Sync</h1><p>Spreadsheet ส่ง proposed changes ผ่าน validation และ expected version ก่อน commit</p></div></section><section className="workspace-grid"><article className="panel"><div className="panel-header"><h2>Sync events</h2><span className="count-badge">{query.data?.length ?? 0}</span></div><div className="data-list">{query.data?.map((event) => <div key={event.id}><span className="code-chip">{event.direction}</span><p><strong>{event.entity_type}</strong><small>{event.last_error || `พยายาม ${event.attempts} ครั้ง`}</small></p><i className={event.status === 'APPLIED' ? 'active-state' : ''}>{event.status}</i></div>)}</div></article><form className="panel form-panel" onSubmit={(event) => { event.preventDefault(); submit.mutate() }}><div><span className="panel-kicker">STAGED INPUT SIMULATION</span><h2>จำลอง Hospitals_Input</h2></div><label>Stable row key<input value={form.row_key} onChange={(event) => setForm({ ...form, row_key: event.target.value })} required /></label><label>รหัสโรงพยาบาล<input value={form.hospital_code} onChange={(event) => setForm({ ...form, hospital_code: event.target.value })} required /></label><label>ชื่อโรงพยาบาล<input value={form.hospital_name} onChange={(event) => setForm({ ...form, hospital_name: event.target.value })} required /></label><label>ชื่อย่อ<input value={form.short_name} onChange={(event) => setForm({ ...form, short_name: event.target.value })} /></label>{submit.error && <div className="login-error">{submit.error.message}</div>}<button className="primary" disabled={submit.isPending}>ตรวจสอบและนำเข้า</button></form></section></>
+}
+
+type LineGroup = { id: string; line_group_id: string; group_type: string; hospital_id: string | null; active: boolean }
+export function LineGroupsPage() {
+  const client = useQueryClient()
+  const hospitals = useQuery({ queryKey: ['hospitals'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
+  const groups = useQuery({ queryKey: ['line-groups'], queryFn: () => api<LineGroup[]>('/line-groups') })
+  const [form, setForm] = useState({ line_group_id: '', group_type: 'HOSPITAL', hospital_id: '' })
+  const create = useMutation({ mutationFn: () => api('/line-groups', { method: 'POST', body: JSON.stringify({ ...form, hospital_id: form.group_type === 'HOSPITAL' ? form.hospital_id : null }) }), onSuccess: () => { setForm({ line_group_id: '', group_type: 'HOSPITAL', hospital_id: '' }); client.invalidateQueries({ queryKey: ['line-groups'] }) } })
+  const hospitalNames = new Map(hospitals.data?.map((hospital) => [hospital.id, hospital.hospital_name]))
+  return <><section className="page-heading"><div><p className="eyebrow">AUTHORIZED DESTINATIONS</p><h1>LINE Group Management</h1><p>Group ID เป็นข้อมูลสิทธิ์ ห้ามอาศัยชื่อโรงพยาบาลจากข้อความแชต</p></div></section><section className="workspace-grid"><article className="panel"><div className="data-list">{groups.data?.map((group) => <div key={group.id}><span className="code-chip">{group.group_type}</span><p><strong>{group.line_group_id}</strong><small>{group.hospital_id ? hospitalNames.get(group.hospital_id) : 'กลุ่มภายในบริษัท'}</small></p><i className={group.active ? 'active-state' : ''}>{group.active ? 'อนุญาต' : 'ปิด'}</i></div>)}</div></article><form className="panel form-panel" onSubmit={(event) => { event.preventDefault(); create.mutate() }}><label>ประเภทกลุ่ม<select value={form.group_type} onChange={(event) => setForm({ ...form, group_type: event.target.value, hospital_id: '' })}><option value="HOSPITAL">Hospital</option><option value="TECHNICIAN">Technician</option><option value="ADMIN">Admin</option></select></label><label>LINE group ID<input value={form.line_group_id} onChange={(event) => setForm({ ...form, line_group_id: event.target.value })} required /></label>{form.group_type === 'HOSPITAL' && <label>โรงพยาบาล<select value={form.hospital_id} onChange={(event) => setForm({ ...form, hospital_id: event.target.value })} required><option value="">เลือกโรงพยาบาล</option>{hospitals.data?.map((hospital) => <option value={hospital.id} key={hospital.id}>{hospital.hospital_name}</option>)}</select></label>}{create.error && <div className="login-error">{create.error.message}</div>}<button className="primary">ลงทะเบียนกลุ่ม</button></form></section></>
+}
+
+export function ReportsPage() {
+  const [year, setYear] = useState(currentYear)
+  const query = useQuery({ queryKey: ['dashboard', year], queryFn: () => api<Metrics>(`/dashboard?year=${year}`) })
+  const rows = [
+    ['รอบ PM ตามแผน', query.data?.total_pm_slots ?? 0], ['นัดที่มี confirmation', query.data?.confirmed_appointments ?? 0],
+    ['รอการยืนยัน', query.data?.pending_confirmation ?? 0], ['ยังไม่ได้นัด', query.data?.unscheduled_slots ?? 0],
+    ['ขอเลื่อนนัด', query.data?.reschedule_requests ?? 0], ['Admin เปลี่ยนวัน', query.data?.admin_changed_appointments ?? 0],
+    ['ยกเลิกนัด', query.data?.cancelled_appointments ?? 0], ['PM backlog', query.data?.unscheduled_backlog ?? 0],
+  ] as const
+  return <><section className="page-heading"><div><p className="eyebrow">PLANNING REPORTS</p><h1>รายงานสถานะนัดหมาย</h1><p>รายงานตาม plan year และไม่อนุมานว่างานบริการเสร็จ</p></div><div className="heading-actions"><label>ปีแผน<select value={year} onChange={(event) => setYear(Number(event.target.value))}><option value={currentYear}>{currentYear + 543}</option><option value={currentYear + 1}>{currentYear + 544}</option></select></label></div></section><article className="panel report-grid">{rows.map(([label, value]) => <div key={label}><span>{label}</span><strong>{value.toLocaleString('th-TH')}</strong></div>)}</article><div className="scope-note"><CalendarCheck2 size={18} /><span>จำนวน confirmation เป็นการยอมรับวันนัดล่วงหน้า ไม่มีข้อมูล Completed หรือ actual service count ในรายงานนี้</span></div></>
+}
+
+type Health = { status: string; database: string; integrations: Record<string, string> }
+export function SettingsPage() {
+  const query = useQuery({ queryKey: ['health'], queryFn: () => api<Health>('/health') })
+  return <><section className="page-heading"><div><p className="eyebrow">OPERATIONS</p><h1>ตั้งค่าและสถานะระบบ</h1><p>แสดงสถานะจริงจาก backend โดยไม่จำลองว่าเชื่อมต่อสำเร็จ</p></div></section><article className="panel settings-grid"><div><span>PostgreSQL</span><strong>{query.data?.database ?? 'กำลังตรวจสอบ'}</strong></div>{Object.entries(query.data?.integrations ?? {}).map(([name, value]) => <div key={name}><span>{name}</span><strong>{value}</strong></div>)}</article><div className="callout"><AlertTriangle size={19} /><span>Notification ส่งจริงถูกปิดตามค่าเริ่มต้น ต้องตั้ง credentials, allowlist และปิด kill switch หลังได้รับอนุมัติ production เท่านั้น</span></div></>
+}
+
 type Draft = { id: string; draft_type: string; status: string; original_text: string; suggestions: { label: string; score: number }[] }
 export function DraftsPage() {
   const query = useQuery({ queryKey: ['drafts'], queryFn: () => api<Draft[]>('/drafts?status=PENDING') })

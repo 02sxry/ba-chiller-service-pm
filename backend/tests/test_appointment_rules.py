@@ -1,13 +1,16 @@
 from datetime import date
 
 import pytest
+from sqlalchemy import select
 
 from app.domain.enums import AppointmentStatus, ChangeSource, PlanningMode, Role
 from app.domain.models import (
+    ActionToken,
     AnnualPlan,
     Equipment,
     Hospital,
     LineGroupMapping,
+    NotificationJob,
     PMSlot,
     User,
 )
@@ -76,6 +79,10 @@ def test_confirmation_and_technician_change_preserve_original_confirmation(db) -
     assert appointment.confirmed_revision_id == original_revision_id
     assert appointment.status == AppointmentStatus.CONFIRMED
     assert appointment.pm_slot_id == slot.id
+    action_token = db.scalar(select(ActionToken).where(ActionToken.revision_id == changed.id))
+    notification = db.scalar(select(NotificationJob).where(NotificationJob.revision_id == changed.id))
+    assert action_token.action == "RESCHEDULE_ONLY"
+    assert notification.payload["actions"]["reschedule"].startswith("action=reschedule&token=")
 
 
 def test_duplicate_active_appointment_is_rejected(db) -> None:
