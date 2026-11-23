@@ -65,7 +65,7 @@ from app.domain.schemas import (
     TokenResponse,
     UserView,
 )
-from app.integrations.google import MockGoogleWorkspaceProvider
+from app.integrations.google import build_google_provider
 from app.integrations.line import verify_signature
 from app.services.appointments import (
     AppointmentError,
@@ -578,13 +578,13 @@ def list_sync_events(
     return list(db.scalars(query).all())
 
 
-@router.post("/google-sync/events/{event_id}/run-mock", response_model=SyncEventView, tags=["google-sync"])
-def run_mock_sync_event(event_id: uuid.UUID, db: Db, _: AdminUser) -> SyncEvent:
+@router.post("/google-sync/events/{event_id}/run", response_model=SyncEventView, tags=["google-sync"])
+def run_google_sync_event(event_id: uuid.UUID, db: Db, _: AdminUser) -> SyncEvent:
     event = db.scalar(select(SyncEvent).where(SyncEvent.id == event_id).with_for_update())
     if not event:
         raise HTTPException(status_code=404, detail="ไม่พบ sync event")
     try:
-        process_outbound_event(db, event, MockGoogleWorkspaceProvider())
+        process_outbound_event(db, event, build_google_provider(get_settings()))
         db.commit()
         db.refresh(event)
         return event

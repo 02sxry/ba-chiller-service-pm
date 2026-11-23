@@ -67,3 +67,14 @@ Docker build ครั้งแรกใน execution environment ติด prox
 
 ไม่มีการนับรายการที่ไม่ได้รันเป็น test ผ่าน
 
+# รายงานการทดสอบล่าสุด — 23 พฤศจิกายน 2026
+
+## ผลการตรวจหลังเพิ่ม Google production adapter
+
+- PostgreSQL 17 isolated container: `pytest -q` ผ่าน 42 tests
+- Ruff: ผ่าน `ruff check app tests alembic --exclude alembic/versions`
+- Frontend: ผ่าน `npm ci && npm run build`
+- Alembic: migration `upgrade head` ผ่าน
+
+การทดสอบครั้งนี้ไม่ใช้ Google credentials และไม่มีการส่งข้อมูลออกไปยัง Google Workspace จริง
+

@@ -18,6 +18,20 @@ Webhook ตรวจ HMAC-SHA256 บน raw body, deduplicate ด้วย `webh
 
 ## Google Sheets
 
+ระบบมี Google API adapter สำหรับ production แล้ว แต่ปิดไว้โดยค่าเริ่มต้นเพื่อป้องกันการส่งข้อมูลโดยไม่ตั้งใจ
+
+กำหนดค่าบนเครื่องปลายทางเมื่อพร้อมเชื่อมต่อจริง:
+
+```dotenv
+GOOGLE_SPREADSHEET_ID=...
+GOOGLE_DRIVE_ROOT_FOLDER_ID=...
+GOOGLE_SERVICE_ACCOUNT_FILE=/run/secrets/google-service-account.json
+GOOGLE_USE_REAL_PROVIDER=true
+```
+
+Service account ต้องมีสิทธิ์แก้ไขเฉพาะ workbook และโฟลเดอร์ที่กำหนดเท่านั้น ห้าม commit JSON key ลง Git
+และควร mount ผ่าน secret store ของเครื่อง local server
+
 สร้าง workbook template ด้วย
 
 ```bash
