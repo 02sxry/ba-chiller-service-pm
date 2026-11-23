@@ -8,14 +8,14 @@ from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.domain.enums import NotificationStatus
 from app.domain.models import NotificationJob
-from app.integrations.line import MockLineProvider, build_flex_message, build_text_message
+from app.integrations.line import build_flex_message, build_line_provider, build_text_message
 
 log = structlog.get_logger()
 
 
 def process_once() -> int:
     settings = get_settings()
-    provider = MockLineProvider()
+    provider = build_line_provider(settings)
     processed = 0
     with SessionLocal.begin() as db:
         jobs = db.scalars(
