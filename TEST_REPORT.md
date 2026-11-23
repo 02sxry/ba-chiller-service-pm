@@ -82,6 +82,8 @@ Docker build ครั้งแรกใน execution environment ติด prox
 - LINE Messaging API adapter: ผ่าน provider contract tests ด้วย fake HTTP client; ไม่มีการเรียก endpoint จริง
 - Gemini adapter: ผ่าน JSON contract/fallback tests ด้วย fake HTTP client; ไม่มีการเรียก endpoint จริง
 - Intake AI suggestion: เก็บเป็น review-only ใน `parsed_data.ai_suggestion` และไม่อนุมัติอัตโนมัติ
+- Full local Compose: migration สำเร็จ, ทุก service healthy, HTTPS health/login/dashboard ผ่าน HTTP 200
+- OpenAPI proxy: `/api/docs` และ `/openapi.json` ส่งถึง backend ได้ถูกต้อง
 
 การทดสอบครั้งนี้ไม่ใช้ Google credentials และไม่มีการส่งข้อมูลออกไปยัง Google Workspace จริง
 
