@@ -5,6 +5,10 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Protocol
 
+import httpx
+
+from app.core.config import Settings
+
 
 def verify_signature(raw_body: bytes, signature: str, channel_secret: str) -> bool:
     digest = hmac.new(channel_secret.encode(), raw_body, hashlib.sha256).digest()
@@ -44,6 +48,37 @@ class MockLineProvider:
     def push(self, destination_id: str, payload: dict[str, Any]) -> ProviderResult:
         digest = hashlib.sha256(f"{destination_id}:{payload}".encode()).hexdigest()[:20]
         return ProviderResult(accepted=True, provider_message_id=f"mock-{digest}")
+
+
+class LineMessagingApiProvider:
+    """Opt-in LINE push adapter; no network call is made by the mock provider."""
+
+    endpoint = "https://api.line.me/v2/bot/message/push"
+
+    def __init__(self, settings: Settings, *, client: httpx.Client | None = None) -> None:
+        if not settings.line_channel_access_token:
+            raise ValueError("ต้องกำหนด LINE_CHANNEL_ACCESS_TOKEN เมื่อเปิด LINE provider")
+        self.access_token = settings.line_channel_access_token
+        self.client = client or httpx.Client(timeout=10.0)
+
+    def push(self, destination_id: str, payload: dict[str, Any]) -> ProviderResult:
+        try:
+            response = self.client.post(
+                self.endpoint,
+                headers={"Authorization": f"Bearer {self.access_token}"},
+                json={"to": destination_id, "messages": [payload]},
+            )
+            if 200 <= response.status_code < 300:
+                return ProviderResult(accepted=True)
+            return ProviderResult(False, error=f"LINE API HTTP {response.status_code}: {response.text[:300]}")
+        except httpx.HTTPError as exc:
+            return ProviderResult(False, error=f"LINE API request failed: {type(exc).__name__}: {exc}")
+
+
+def build_line_provider(settings: Settings) -> LineProvider:
+    if not settings.line_channel_access_token:
+        return MockLineProvider()
+    return LineMessagingApiProvider(settings)
 
 
 def build_flex_message(kind: str, payload: dict[str, Any]) -> dict[str, Any]:
