@@ -46,6 +46,7 @@ Operational integration milestone: Google provider adapter และ container b
 - Google Sheets export ใช้ `row_key`/`record_id` ค้นหาและ update แถวเดิมก่อน append ป้องกัน retry สร้างข้อมูลซ้ำ
 - Google Drive upload ตรวจ folder kind, ค้นหาโฟลเดอร์เป้าหมายใต้ root และปฏิเสธ missing/duplicate folder ก่อน upload
 - LINE Messaging API production adapter แบบ opt-in พร้อม HTTP error handling และ mock fallback
+- Gemini intent provider แบบ opt-in พร้อม JSON contract validation, temperature 0 และ safe deterministic fallback
 - Deterministic LINE Q&A รองรับเมนูช่วยเหลือและดูนัดหมายของ hospital group ที่ authorize แล้ว
 - LINE Q&A ใช้ notification outbox เดิม, มี idempotency ต่อ webhook event และไม่ส่งจริงเมื่อ kill switch เปิด
 
@@ -57,7 +58,7 @@ Operational integration milestone: Google provider adapter และ container b
 - `alembic check` ผ่านและไม่พบ schema drift
 - `npm run build` ผ่าน TypeScript และ Vite production build
 - FastAPI start-up, `/api/v1/health` และ `/openapi.json` ผ่าน
-- `pytest -q` ผ่าน 48 tests หลังเปิด PostgreSQL 17 isolated container
+- `pytest -q` ผ่าน 51 tests หลังเปิด PostgreSQL 17 isolated container
 - `ruff check app tests alembic --exclude alembic/versions` ผ่านหลังเพิ่ม Google adapter
 - `npm ci && npm run build` ผ่าน TypeScript และ Vite production build
 - Google retry endpoint และ Sync operations UI ผ่าน regression suite เดิมโดยไม่เพิ่ม schema/migration
@@ -65,6 +66,7 @@ Operational integration milestone: Google provider adapter และ container b
 - Google Sheets stable-row update ผ่าน provider contract test โดยไม่ใช้ workbook จริง
 - Google Drive folder routing ผ่าน contract test โดยไม่ upload ไฟล์จริง
 - LINE provider payload/auth/error handling ผ่าน contract tests โดยไม่เรียก LINE จริง
+- Gemini valid/invalid response handling ผ่าน contract tests โดยไม่เรียก Gemini จริง
 - Backend และ frontend production Docker image build ผ่าน
 - Production Compose configuration validation ผ่าน
 - Full Compose cold start, HTTPS reverse proxy, Admin bootstrap, login และ protected API smoke test ผ่าน
@@ -88,7 +90,7 @@ Operational integration milestone: Google provider adapter และ container b
 ## Next actions
 
 1. เพิ่ม Google export reconciliation หลายแถวและ conflict resolution UI
-2. เพิ่ม LINE webhook reply/retry rehearsal เมื่อได้รับ channel credentials และอนุมัติการส่งข้อความ
+2. เชื่อม Gemini provider เข้ากับ intake เฉพาะกรณี deterministic parser จับ intent ไม่ได้
 3. เพิ่ม browser E2E เมื่อมี browser runtime
 4. ทดสอบ public TLS/tunnel กับ LINE Verify Webhook หลังได้รับ credentials และอนุมัติ network
 5. ทำ acceptance rehearsal ด้วยข้อมูลจำลองก่อนเชื่อม credentials จริง
