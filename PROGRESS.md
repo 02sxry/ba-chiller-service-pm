@@ -23,6 +23,8 @@ Foundation + core appointment workflow พร้อม PostgreSQL integration te
 - Notification outbox, claim/retry, kill switch และ destination allowlist
 - Mock LINE, Google Workspace และ disabled Gemini adapters
 - React Thai dashboard, login, hospital form, PM preview และ draft review
+- Equipment form, PM plan approval, technician intake queue และ operational appointment tables
+- Calendar, confirmation, reschedule และ history routes เชื่อม authoritative appointment API
 - Responsive navigation 18 หมวดและ integration health ที่ไม่แสดงสถานะสำเร็จปลอม
 - Docker Compose สำหรับ PostgreSQL dev และ local production stack
 - Caddy, worker, scheduler, backup/restore, webhook relay และ security docs
@@ -39,7 +41,7 @@ Foundation + core appointment workflow พร้อม PostgreSQL integration te
 
 ## ข้อจำกัดและงานคงเหลือ
 
-- Equipment form, calendar, approval queue, appointment history และ reporting pages บางหน้าเป็น route placeholder
+- Reports, LINE Groups, Google operations และ Settings บางหน้าเป็น route placeholder
 - Equipment/PM Plan dependent Draft approval ยังต้องต่อให้ครบทุก dependency
 - Google Sheets/Drive production adapters และ reconciliation worker ยังเป็น mock contract
 - LINE Flex Message rendering, postback event routing และ natural-language Q&A ต้องต่อจาก provider contract

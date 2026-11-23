@@ -154,6 +154,33 @@ class AppointmentView(ORMModel):
     version: int
 
 
+class AppointmentSummary(BaseModel):
+    id: uuid.UUID
+    reference: str
+    hospital_name: str
+    equipment_name: str
+    plan_year: int
+    planned_month: int
+    scheduled_date: date
+    status: AppointmentStatus
+    revision_number: int
+    confirmed_date: date | None
+    admin_changed_after_confirmation: bool
+    notification_warning: bool
+
+
+class IntakeView(ORMModel):
+    id: uuid.UUID
+    source_type: str
+    source_event_id: str
+    raw_text: str | None
+    parsed_data: dict[str, Any]
+    state: str
+    validation_errors: list[str]
+    version: int
+    created_at: datetime
+
+
 class ConfirmRequest(BaseModel):
     token: str
     line_group_id: str

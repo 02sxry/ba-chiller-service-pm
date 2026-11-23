@@ -16,6 +16,7 @@
 - Technician change after confirmation โดยไม่บังคับ reconfirm
 - Audit/outbox/webhook security foundation
 - Thai dashboard และ core forms บางส่วน
+- Equipment/PM plan forms, intake queue และ appointment calendar/history views
 - Mock integration mode และ local deployment artifacts
 
 ## สิ่งที่ทดสอบจริง

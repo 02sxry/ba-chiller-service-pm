@@ -28,6 +28,7 @@ from app.domain.models import (
 )
 from app.domain.schemas import (
     AppointmentApproveRequest,
+    AppointmentSummary,
     AppointmentView,
     ApproveHospitalDraftRequest,
     BulkApprovalRequest,
@@ -41,6 +42,7 @@ from app.domain.schemas import (
     HealthResponse,
     HospitalCreate,
     HospitalView,
+    IntakeView,
     LoginRequest,
     MatchHospitalDraftRequest,
     PlanApproveRequest,
@@ -273,6 +275,19 @@ def text_intake(request: TextIntakeRequest, db: Db, _: AdminUser) -> dict:
     return {"id": intake.id, "state": intake.state, "parsed_data": intake.parsed_data, "errors": intake.validation_errors}
 
 
+@router.get("/intakes", response_model=list[IntakeView], tags=["intake"])
+def list_intakes(
+    db: Db,
+    _: AdminUser,
+    state: str | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
+) -> list[ScheduleIntake]:
+    query = select(ScheduleIntake).order_by(ScheduleIntake.created_at.desc()).limit(limit)
+    if state:
+        query = query.where(ScheduleIntake.state == state)
+    return list(db.scalars(query).all())
+
+
 @router.post("/intakes/excel", tags=["intake"])
 async def excel_intake(db: Db, _: AdminUser, file: Annotated[UploadFile, File()]) -> dict:
     settings = get_settings()
@@ -357,6 +372,76 @@ def appointment_history(appointment_id: uuid.UUID, db: Db, _: CurrentUser) -> li
         select(AppointmentRevision).where(AppointmentRevision.appointment_id == appointment_id)
         .order_by(AppointmentRevision.revision_number)
     ).all())
+
+
+@router.get("/appointments", response_model=list[AppointmentSummary], tags=["appointments"])
+def list_appointments(
+    db: Db,
+    _: CurrentUser,
+    plan_year: int | None = None,
+    status: AppointmentStatus | None = None,
+) -> list[AppointmentSummary]:
+    confirmed_revision = AppointmentRevision.__table__.alias("confirmed_revision")
+    query = (
+        select(
+            Appointment,
+            AppointmentRevision,
+            Hospital.hospital_name,
+            Equipment.equipment_name,
+            PMSlot.plan_year,
+            PMSlot.planned_month,
+            confirmed_revision.c.scheduled_date.label("confirmed_date"),
+        )
+        .join(PMSlot, PMSlot.id == Appointment.pm_slot_id)
+        .join(Hospital, Hospital.id == Appointment.hospital_id)
+        .join(Equipment, Equipment.id == Appointment.equipment_id)
+        .join(AppointmentRevision, AppointmentRevision.id == Appointment.current_revision_id)
+        .outerjoin(confirmed_revision, confirmed_revision.c.id == Appointment.confirmed_revision_id)
+        .order_by(AppointmentRevision.scheduled_date, Hospital.hospital_name)
+    )
+    if plan_year is not None:
+        query = query.where(PMSlot.plan_year == plan_year)
+    if status is not None:
+        query = query.where(Appointment.status == status)
+    rows = db.execute(query).all()
+    appointment_ids = [row[0].id for row in rows]
+    warning_ids = set(db.scalars(
+        select(NotificationJob.appointment_id).where(
+            NotificationJob.appointment_id.in_(appointment_ids),
+            NotificationJob.status.in_([
+                NotificationStatus.FAILED,
+                NotificationStatus.REVIEW_REQUIRED,
+            ]),
+        )
+    ).all()) if appointment_ids else set()
+    return [
+        AppointmentSummary(
+            id=appointment.id,
+            reference=f"BA-{str(appointment.id)[:8].upper()}",
+            hospital_name=hospital_name,
+            equipment_name=equipment_name,
+            plan_year=row_plan_year,
+            planned_month=planned_month,
+            scheduled_date=revision.scheduled_date,
+            status=appointment.status,
+            revision_number=revision.revision_number,
+            confirmed_date=confirmed_date,
+            admin_changed_after_confirmation=bool(
+                appointment.confirmed_revision_id
+                and appointment.current_revision_id != appointment.confirmed_revision_id
+            ),
+            notification_warning=appointment.id in warning_ids,
+        )
+        for (
+            appointment,
+            revision,
+            hospital_name,
+            equipment_name,
+            row_plan_year,
+            planned_month,
+            confirmed_date,
+        ) in rows
+    ]
 
 
 @router.post("/line/webhook", tags=["line"])
