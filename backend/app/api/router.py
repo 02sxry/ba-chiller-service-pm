@@ -593,6 +593,32 @@ def run_google_sync_event(event_id: uuid.UUID, db: Db, _: AdminUser) -> SyncEven
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
+@router.post("/google-sync/events/{event_id}/retry", response_model=SyncEventView, tags=["google-sync"])
+def retry_google_sync_event(event_id: uuid.UUID, db: Db, admin: AdminUser) -> SyncEvent:
+    event = db.scalar(select(SyncEvent).where(SyncEvent.id == event_id).with_for_update())
+    if not event:
+        raise HTTPException(status_code=404, detail="ไม่พบ sync event")
+    if event.direction != "OUTBOUND" or event.status not in {SyncStatus.FAILED, SyncStatus.CONFLICT}:
+        raise HTTPException(status_code=409, detail="retry ได้เฉพาะ outbound event ที่ล้มเหลวหรือ conflict")
+    old_status = event.status
+    event.status = SyncStatus.PENDING
+    event.last_error = None
+    record_audit(
+        db,
+        actor=admin,
+        action="GOOGLE_SYNC_RETRY",
+        entity_type=event.entity_type,
+        entity_id=event.entity_id,
+        old_values={"status": old_status.value, "attempts": event.attempts},
+        new_values={"status": event.status.value, "attempts": event.attempts},
+        reason="Admin สั่ง retry จาก Google operations",
+        source="WEB",
+    )
+    db.commit()
+    db.refresh(event)
+    return event
+
+
 @router.post("/line/webhook", tags=["line"])
 async def line_webhook(
     request: Request,

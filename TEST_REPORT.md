@@ -75,6 +75,7 @@ Docker build ครั้งแรกใน execution environment ติด prox
 - Ruff: ผ่าน `ruff check app tests alembic --exclude alembic/versions`
 - Frontend: ผ่าน `npm ci && npm run build`
 - Alembic: migration `upgrade head` ผ่าน
+- Google operations retry action: ผ่าน backend regression และ frontend TypeScript/Vite build
 
 การทดสอบครั้งนี้ไม่ใช้ Google credentials และไม่มีการส่งข้อมูลออกไปยัง Google Workspace จริง
 

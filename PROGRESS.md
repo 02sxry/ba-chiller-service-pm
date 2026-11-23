@@ -42,6 +42,7 @@ Operational integration milestone: Google provider adapter และ container b
 - Google production adapter แบบ opt-in สำหรับ Sheets append และ Drive upload ด้วย service account
 - Google provider factory แยก mock/production ชัดเจน โดยค่าเริ่มต้นยังปลอดภัยเป็น mock
 - เพิ่ม Google API SDK ใน lockfile และตั้งค่า `GOOGLE_SERVICE_ACCOUNT_FILE` / `GOOGLE_USE_REAL_PROVIDER`
+- Google operations มีปุ่ม Admin สั่งส่งซ้ำ/ลองใหม่สำหรับ outbound sync event พร้อม audit log
 
 ## Tests executed
 
@@ -54,6 +55,7 @@ Operational integration milestone: Google provider adapter และ container b
 - `pytest -q` ผ่าน 42 tests หลังเปิด PostgreSQL 17 isolated container
 - `ruff check app tests alembic --exclude alembic/versions` ผ่านหลังเพิ่ม Google adapter
 - `npm ci && npm run build` ผ่าน TypeScript และ Vite production build
+- Google retry endpoint และ Sync operations UI ผ่าน regression suite เดิมโดยไม่เพิ่ม schema/migration
 - Backend และ frontend production Docker image build ผ่าน
 - Production Compose configuration validation ผ่าน
 - Full Compose cold start, HTTPS reverse proxy, Admin bootstrap, login และ protected API smoke test ผ่าน
@@ -76,7 +78,7 @@ Operational integration milestone: Google provider adapter และ container b
 
 ## Next actions
 
-1. เพิ่ม Google export reconciliation และ conflict resolution UI
+1. เพิ่ม Google export reconciliation แบบ stable row update และ conflict resolution UI
 2. ทำ deterministic LINE Q&A และ reply adapter
 3. เพิ่ม browser E2E เมื่อมี browser runtime
 4. ทดสอบ public TLS/tunnel กับ LINE Verify Webhook หลังได้รับ credentials และอนุมัติ network
