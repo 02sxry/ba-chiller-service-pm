@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     line_destination_allowlist: str = ""
     google_spreadsheet_id: str | None = None
     google_drive_root_folder_id: str | None = None
+    google_service_account_file: str | None = None
+    google_use_real_provider: bool = False
     gemini_api_key: str | None = None
     upload_max_bytes: int = 10 * 1024 * 1024
     slot_warning_months: int = Field(default=2, ge=0, le=12)
