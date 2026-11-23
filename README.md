@@ -11,8 +11,9 @@
 ```bash
 docker compose up -d db
 cd backend
-DATABASE_URL=postgresql+psycopg://ba_chiller:ba_chiller@localhost:55432/ba_chiller alembic upgrade head
-DATABASE_URL=postgresql+psycopg://ba_chiller:ba_chiller@localhost:55432/ba_chiller uvicorn app.main:app --reload
+# ตั้ง DATABASE_URL ใน shell ให้ชี้ PostgreSQL สำหรับพัฒนาก่อนรันคำสั่งต่อไปนี้
+alembic upgrade head
+uvicorn app.main:app --reload
 ```
 
 เปิดอีก terminal
@@ -28,14 +29,20 @@ API docs อยู่ที่ `http://localhost:8000/api/docs` และเว�
 สร้าง Admin คนแรกหลัง migration
 
 ```bash
-DATABASE_URL=postgresql+psycopg://ba_chiller:ba_chiller@localhost:55432/ba_chiller python scripts/bootstrap_admin.py
+python scripts/bootstrap_admin.py
+```
+
+ถ้ารันด้วย production Compose ให้สร้างจาก backend container เพื่อไม่ต้องเปิดพอร์ต PostgreSQL:
+
+```bash
+docker compose --env-file .env -f deploy/local/compose.yaml exec backend python -m app.cli bootstrap-admin
 ```
 
 ## ทดสอบ
 
 ```bash
 cd backend
-DATABASE_URL=postgresql+psycopg://ba_chiller:ba_chiller@localhost:55432/ba_chiller pytest -q
+pytest -q
 ruff check app tests alembic
 
 cd ../frontend

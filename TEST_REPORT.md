@@ -6,7 +6,7 @@
 
 | ชุดทดสอบ | ผล | หลักฐาน |
 |---|---:|---|
-| Backend business rules/API | 34 passed | pytest กับ PostgreSQL 17 container, 0 failed |
+| Backend business rules/API | 36 passed | pytest กับ PostgreSQL 17 container, 0 failed |
 | Python lint | ผ่าน | Ruff ตรวจ app, tests และ Alembic environment |
 | PostgreSQL migration | ผ่าน | Alembic upgrade revision `1b6004596e27` |
 | Schema drift | ผ่าน | Alembic check รายงาน `No new upgrade operations detected` |
@@ -18,6 +18,9 @@
 | Frontend Docker image | ผ่าน | Node 24 build + Nginx runtime, image `ba-chiller-frontend:test` |
 | Container smoke checks | ผ่าน | Backend import สำเร็จ และ Nginx config syntax ผ่านเมื่อมี Compose service hostname |
 | Production Compose config | ผ่าน | `docker compose --env-file .env ... config --quiet` |
+| Full Compose cold start | ผ่าน | PostgreSQL -> migration/backend health -> frontend/worker/scheduler ตามลำดับ ไม่มี missing-table error |
+| HTTPS reverse proxy | ผ่าน | HTTP redirect, HTTPS 200, security headers และ `/api/v1/health` ผ่าน Caddy |
+| Admin bootstrap/login | ผ่าน | สร้าง Admin แบบ interactive ใน container, รับ bearer token และเรียก protected API HTTP 200 |
 
 ## Business rules ที่ทดสอบ
 
@@ -42,13 +45,14 @@
 - Google stale version ถูกเก็บเป็น conflict โดยไม่ทับข้อมูลจริง
 - Google outbound mock retry ถูกจำกัดจำนวนครั้ง และ duplicate hospital code ถูกเก็บเป็น failed event
 - Anonymous ถูกปฏิเสธ, Viewer อ่านได้แต่แก้ master data ไม่ได้ และ Admin สร้างได้
+- Admin bootstrap ปฏิเสธอีเมลสงวน/รหัสผ่านสั้น, normalize อีเมล และ hash รหัสผ่าน
 
 ## ไม่ผ่านหรือยังรันไม่ได้
 
 - Cloud Desktop เปิด browser ไม่ได้เพราะ browser runtime unavailable
 - Playwright ดาวน์โหลด Chromium ไม่ได้เพราะ CDN ตอบ HTTP 403 จึงยังไม่มี visual/E2E browser result
 - Real LINE, Google Sheets, Google Drive และ Gemini ไม่ได้ทดสอบเพราะไม่มี credentials และไม่มีสิทธิ์ส่งจริง
-- Full Compose runtime, backup restore และ network outage recovery ยังไม่ได้ทดสอบ
+- Backup restore และ network outage recovery ยังไม่ได้ทดสอบ
 
 Docker build ครั้งแรกใน execution environment ติด proxy CA แบบ self-signed ทั้ง PyPI และ npm registry จากนั้น build ผ่านเมื่อส่ง CA เป็น BuildKit secret; certificate ไม่ถูก copy หรือฝังใน image
 

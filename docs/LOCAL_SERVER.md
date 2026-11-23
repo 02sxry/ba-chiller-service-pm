@@ -9,7 +9,7 @@
 3. ตั้ง `APP_HOST`, `POSTGRES_PASSWORD`, `SECRET_KEY` และ account bootstrap
 4. รัน `docker compose -f deploy/local/compose.yaml build`
 5. รัน migration ด้วย backend container
-6. สร้าง Admin คนแรกแบบ interactive
+6. สร้าง Admin คนแรกแบบ interactive ด้วย `docker compose --env-file .env -f deploy/local/compose.yaml exec backend python -m app.cli bootstrap-admin`
 7. รัน `docker compose -f deploy/local/compose.yaml up -d`
 8. ตรวจ `/api/v1/health`, worker status, volumes และ log rotation
 

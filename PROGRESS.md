@@ -35,10 +35,13 @@ Operational integration milestone: LINE actions, Google staging sync และ c
 - Caddy, worker, scheduler, backup/restore, webhook relay และ security docs
 - Reproducible Google workbook template generator
 - Reproducible backend image จาก `uv.lock`, Docker build secrets สำหรับ private CA และ build-context exclusions
+- Production Compose cold start รอ database migration/backend health ก่อนเริ่ม worker และ scheduler
+- Caddy รับ `APP_HOST` และข้าม corporate proxy สำหรับ internal service names
+- Interactive Admin bootstrap CLI ภายใน backend container พร้อม email/password validation
 
 ## Tests executed
 
-- `pytest -q` กับ PostgreSQL 17 จริง ผ่าน 34 tests
+- `pytest -q` กับ PostgreSQL 17 จริง ผ่าน 36 tests
 - `ruff check app tests alembic --exclude alembic/versions` ผ่าน
 - `alembic upgrade head` ผ่าน
 - `alembic check` ผ่านและไม่พบ schema drift
@@ -46,6 +49,7 @@ Operational integration milestone: LINE actions, Google staging sync และ c
 - FastAPI start-up, `/api/v1/health` และ `/openapi.json` ผ่าน
 - Backend และ frontend production Docker image build ผ่าน
 - Production Compose configuration validation ผ่าน
+- Full Compose cold start, HTTPS reverse proxy, Admin bootstrap, login และ protected API smoke test ผ่าน
 
 ## ข้อจำกัดและงานคงเหลือ
 
@@ -62,7 +66,7 @@ Operational integration milestone: LINE actions, Google staging sync และ c
 1. ทำ Google Sheets/Drive production adapters และ conflict resolution UI
 2. ทำ deterministic LINE Q&A และ reply adapter
 3. เพิ่ม worker crash/retry tests และ browser E2E
-4. ทดสอบ full Compose runtime, backup/restore และ webhook relay ใน isolated environment
+4. ทดสอบ backup/restore และ webhook relay ใน isolated environment
 5. ทำ acceptance rehearsal ด้วยข้อมูลจำลองก่อนเชื่อม credentials จริง
 
 ## Latest Git commit
