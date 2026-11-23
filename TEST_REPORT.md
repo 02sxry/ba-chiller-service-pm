@@ -76,6 +76,7 @@ Docker build ครั้งแรกใน execution environment ติด prox
 - Frontend: ผ่าน `npm ci && npm run build`
 - Alembic: migration `upgrade head` ผ่าน
 - Google operations retry action: ผ่าน backend regression และ frontend TypeScript/Vite build
+- LINE Q&A parser และ bounded reply payload: ผ่าน
 
 การทดสอบครั้งนี้ไม่ใช้ Google credentials และไม่มีการส่งข้อมูลออกไปยัง Google Workspace จริง
 
