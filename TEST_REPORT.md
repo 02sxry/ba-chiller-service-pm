@@ -81,6 +81,7 @@ Docker build ครั้งแรกใน execution environment ติด prox
 - Google Drive folder routing: ผ่าน missing-folder safety test
 - LINE Messaging API adapter: ผ่าน provider contract tests ด้วย fake HTTP client; ไม่มีการเรียก endpoint จริง
 - Gemini adapter: ผ่าน JSON contract/fallback tests ด้วย fake HTTP client; ไม่มีการเรียก endpoint จริง
+- Intake AI suggestion: เก็บเป็น review-only ใน `parsed_data.ai_suggestion` และไม่อนุมัติอัตโนมัติ
 
 การทดสอบครั้งนี้ไม่ใช้ Google credentials และไม่มีการส่งข้อมูลออกไปยัง Google Workspace จริง
 
