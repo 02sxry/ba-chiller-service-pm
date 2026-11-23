@@ -18,6 +18,14 @@ def test_real_provider_requires_workspace_configuration() -> None:
 
 def test_real_provider_exports_rows_through_sheets_service() -> None:
     class Values:
+        def get(self, **kwargs):
+            self.get_kwargs = kwargs
+            return SimpleNamespace(execute=lambda: {"values": [["row_key", "record_id", "active"], ["hospital:h1", "h1", False]]})
+
+        def update(self, **kwargs):
+            self.update_kwargs = kwargs
+            return SimpleNamespace(execute=lambda: {"updatedRange": kwargs["range"]})
+
         def append(self, **kwargs):
             self.kwargs = kwargs
             return SimpleNamespace(execute=lambda: {"updates": {"updatedRange": "Hospitals_View!A1:B2"}})
@@ -35,7 +43,8 @@ def test_real_provider_exports_rows_through_sheets_service() -> None:
         sheets_service=SimpleNamespace(spreadsheets=lambda: sheets),
         drive_service=SimpleNamespace(),
     )
-    result = provider.export_rows("Hospitals_View", [{"record_id": "h1", "active": True}])
+    result = provider.export_rows("Hospitals_View", [{"row_key": "hospital:h1", "record_id": "h1", "active": True}])
     assert result.success is True
-    assert result.reference_id == "Hospitals_View!A1:B2"
-    assert sheets.values_api.kwargs["spreadsheetId"] == "sheet-1"
+    assert result.reference_id == "sheets:Hospitals_View:update:2"
+    assert sheets.values_api.get_kwargs["spreadsheetId"] == "sheet-1"
+    assert sheets.values_api.update_kwargs["range"] == "Hospitals_View!A2:C2"

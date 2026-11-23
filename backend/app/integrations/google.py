@@ -4,6 +4,14 @@ from typing import Any, Protocol
 from app.core.config import Settings
 
 
+def _column_label(index: int) -> str:
+    label = ""
+    while index:
+        index, remainder = divmod(index - 1, 26)
+        label = chr(65 + remainder) + label
+    return label
+
+
 @dataclass
 class GoogleResult:
     success: bool
@@ -62,16 +70,54 @@ class GoogleApiWorkspaceProvider:
             return GoogleResult(True, reference_id=f"sheets:{self.spreadsheet_id}:{worksheet}:empty")
         columns = list(rows[0])
         values = [[row.get(column) for column in columns] for row in rows]
-        body = {"values": [columns, *values]}
         try:
-            response = self.sheets.spreadsheets().values().append(
-                spreadsheetId=self.spreadsheet_id,
-                range=f"{worksheet}!A1",
-                valueInputOption="RAW",
-                insertDataOption="INSERT_ROWS",
-                body=body,
-            ).execute()
-            return GoogleResult(True, reference_id=response.get("updates", {}).get("updatedRange", worksheet))
+            values_api = self.sheets.spreadsheets().values()
+            existing = values_api.get(
+                spreadsheetId=self.spreadsheet_id, range=f"{worksheet}!A:ZZ"
+            ).execute().get("values", [])
+            if not existing:
+                response = values_api.append(
+                    spreadsheetId=self.spreadsheet_id,
+                    range=f"{worksheet}!A1",
+                    valueInputOption="RAW",
+                    insertDataOption="INSERT_ROWS",
+                    body={"values": [columns, *values]},
+                ).execute()
+                return GoogleResult(True, reference_id=response.get("updates", {}).get("updatedRange", worksheet))
+
+            header = existing[0]
+            key_column = "row_key" if "row_key" in header else "record_id"
+            if key_column not in header:
+                return GoogleResult(False, error=f"Google Sheets worksheet {worksheet} ไม่มีคอลัมน์ {key_column}")
+            key_index = header.index(key_column)
+            indexes = {name: header.index(name) for name in columns if name in header}
+            references = []
+            for row in rows:
+                ordered = [None] * len(header)
+                for name, index in indexes.items():
+                    ordered[index] = row.get(name)
+                key = str(row.get(key_column) or "")
+                matching_row = next((position for position, existing_row in enumerate(existing[1:], start=2)
+                                     if len(existing_row) > key_index and str(existing_row[key_index]) == key), None)
+                if matching_row is None:
+                    values_api.append(
+                        spreadsheetId=self.spreadsheet_id,
+                        range=f"{worksheet}!A1",
+                        valueInputOption="RAW",
+                        insertDataOption="INSERT_ROWS",
+                        body={"values": [ordered]},
+                    ).execute()
+                    references.append(f"append:{key}")
+                else:
+                    end_column = _column_label(len(header))
+                    values_api.update(
+                        spreadsheetId=self.spreadsheet_id,
+                        range=f"{worksheet}!A{matching_row}:{end_column}{matching_row}",
+                        valueInputOption="RAW",
+                        body={"values": [ordered]},
+                    ).execute()
+                    references.append(f"update:{matching_row}")
+            return GoogleResult(True, reference_id=f"sheets:{worksheet}:{','.join(references)}")
         except Exception as exc:
             return GoogleResult(False, error=f"Google Sheets export failed: {type(exc).__name__}: {exc}")
 

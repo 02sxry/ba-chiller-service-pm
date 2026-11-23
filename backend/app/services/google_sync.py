@@ -32,6 +32,7 @@ def _queue_hospital_export(db: Session, hospital: Hospital) -> SyncEvent:
         payload={
             "worksheet": "Hospitals_View",
             "rows": [{
+                "row_key": f"hospital:{hospital.id}",
                 "record_id": str(hospital.id),
                 "hospital_code": hospital.hospital_code,
                 "hospital_name": hospital.hospital_name,
