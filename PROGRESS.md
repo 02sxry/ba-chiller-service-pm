@@ -44,6 +44,7 @@ Operational integration milestone: Google provider adapter และ container b
 - เพิ่ม Google API SDK ใน lockfile และตั้งค่า `GOOGLE_SERVICE_ACCOUNT_FILE` / `GOOGLE_USE_REAL_PROVIDER`
 - Google operations มีปุ่ม Admin สั่งส่งซ้ำ/ลองใหม่สำหรับ outbound sync event พร้อม audit log
 - Google Sheets export ใช้ `row_key`/`record_id` ค้นหาและ update แถวเดิมก่อน append ป้องกัน retry สร้างข้อมูลซ้ำ
+- Google Drive upload ตรวจ folder kind, ค้นหาโฟลเดอร์เป้าหมายใต้ root และปฏิเสธ missing/duplicate folder ก่อน upload
 - Deterministic LINE Q&A รองรับเมนูช่วยเหลือและดูนัดหมายของ hospital group ที่ authorize แล้ว
 - LINE Q&A ใช้ notification outbox เดิม, มี idempotency ต่อ webhook event และไม่ส่งจริงเมื่อ kill switch เปิด
 
@@ -55,12 +56,13 @@ Operational integration milestone: Google provider adapter และ container b
 - `alembic check` ผ่านและไม่พบ schema drift
 - `npm run build` ผ่าน TypeScript และ Vite production build
 - FastAPI start-up, `/api/v1/health` และ `/openapi.json` ผ่าน
-- `pytest -q` ผ่าน 42 tests หลังเปิด PostgreSQL 17 isolated container
+- `pytest -q` ผ่าน 45 tests หลังเปิด PostgreSQL 17 isolated container
 - `ruff check app tests alembic --exclude alembic/versions` ผ่านหลังเพิ่ม Google adapter
 - `npm ci && npm run build` ผ่าน TypeScript และ Vite production build
 - Google retry endpoint และ Sync operations UI ผ่าน regression suite เดิมโดยไม่เพิ่ม schema/migration
 - LINE question parser, appointment lookup และ bounded text payload ผ่าน tests
 - Google Sheets stable-row update ผ่าน provider contract test โดยไม่ใช้ workbook จริง
+- Google Drive folder routing ผ่าน contract test โดยไม่ upload ไฟล์จริง
 - Backend และ frontend production Docker image build ผ่าน
 - Production Compose configuration validation ผ่าน
 - Full Compose cold start, HTTPS reverse proxy, Admin bootstrap, login และ protected API smoke test ผ่าน
