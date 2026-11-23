@@ -8,7 +8,7 @@ from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.domain.enums import NotificationStatus
 from app.domain.models import NotificationJob
-from app.integrations.line import MockLineProvider, build_flex_message
+from app.integrations.line import MockLineProvider, build_flex_message, build_text_message
 
 log = structlog.get_logger()
 
@@ -35,7 +35,8 @@ def process_once() -> int:
                 job.status = NotificationStatus.REVIEW_REQUIRED
                 job.last_error = "ปลายทางไม่อยู่ใน allowlist"
                 continue
-            result = provider.push(job.destination_id, build_flex_message(job.kind, job.payload))
+            message = build_text_message(job.payload["text"]) if job.kind == "LINE_TEXT_REPLY" else build_flex_message(job.kind, job.payload)
+            result = provider.push(job.destination_id, message)
             if result.accepted:
                 job.status = NotificationStatus.ACCEPTED
                 job.provider_message_id = result.provider_message_id

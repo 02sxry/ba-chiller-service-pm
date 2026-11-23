@@ -66,7 +66,7 @@ from app.domain.schemas import (
     UserView,
 )
 from app.integrations.google import build_google_provider
-from app.integrations.line import verify_signature
+from app.integrations.line import LineQuestionIntent, parse_line_question, verify_signature
 from app.services.appointments import (
     AppointmentError,
     approve_appointment,
@@ -671,6 +671,47 @@ async def line_webhook(
                         action_results.append({"event_id": event_id, "result": "UNKNOWN_ACTION"})
                 except (AppointmentError, ValueError) as exc:
                     action_results.append({"event_id": event_id, "result": f"REJECTED: {exc}"})
+        elif event.get("type") == "message" and event.get("message", {}).get("type") == "text":
+            group_id = event.get("source", {}).get("groupId")
+            mapping = db.scalar(select(LineGroupMapping).where(
+                LineGroupMapping.line_group_id == group_id,
+                LineGroupMapping.group_type == "HOSPITAL",
+                LineGroupMapping.active.is_(True),
+            )) if group_id else None
+            intent = parse_line_question(event["message"].get("text", ""))
+            if not mapping or not mapping.hospital_id:
+                action_results.append({"event_id": event_id, "result": "UNAUTHORIZED_GROUP"})
+            elif intent == LineQuestionIntent.HELP:
+                db.add(NotificationJob(
+                    idempotency_key=f"LINE_QA:{event_id}", kind="LINE_TEXT_REPLY", destination_id=group_id,
+                    payload={"text": "เมนูช่วยเหลือ: พิมพ์ ‘ขอนัดหมาย’ เพื่อดูนัดหมายของโรงพยาบาล หรือกดปุ่มในข้อความแจ้งนัดเพื่อยืนยัน/ขอเลื่อนนัด"},
+                    status=NotificationStatus.PENDING,
+                ))
+                action_results.append({"event_id": event_id, "result": "HELP_QUEUED"})
+            elif intent == LineQuestionIntent.APPOINTMENTS:
+                rows = db.execute(
+                    select(AppointmentRevision.scheduled_date, Appointment.status)
+                    .join(Appointment, Appointment.id == AppointmentRevision.appointment_id)
+                    .where(
+                        Appointment.hospital_id == mapping.hospital_id,
+                        Appointment.current_revision_id == AppointmentRevision.id,
+                        Appointment.status != AppointmentStatus.CANCELLED,
+                    )
+                    .order_by(AppointmentRevision.scheduled_date)
+                    .limit(3)
+                ).all()
+                if rows:
+                    dates = ", ".join(f"{scheduled_date.isoformat()} ({status.value})" for scheduled_date, status in rows)
+                    reply = f"นัดหมายที่มีในระบบ: {dates} ระบบแสดงแผนนัดหมายล่วงหน้า ไม่ได้หมายความว่างานบริการเสร็จแล้ว"
+                else:
+                    reply = "ยังไม่พบนัดหมายของโรงพยาบาลในระบบ กรุณาติดต่อผู้ประสานงานเพื่อให้ Admin ตรวจสอบ"
+                db.add(NotificationJob(
+                    idempotency_key=f"LINE_QA:{event_id}", kind="LINE_TEXT_REPLY", destination_id=group_id,
+                    payload={"text": reply}, status=NotificationStatus.PENDING,
+                ))
+                action_results.append({"event_id": event_id, "result": "APPOINTMENTS_QUEUED"})
+            else:
+                action_results.append({"event_id": event_id, "result": "UNKNOWN_QUESTION"})
         accepted += 1
     db.commit()
     return {"accepted_events": accepted, "actions": action_results}

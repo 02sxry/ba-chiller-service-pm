@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Any, Protocol
 
 
@@ -16,6 +17,23 @@ class ProviderResult:
     accepted: bool
     provider_message_id: str | None = None
     error: str | None = None
+
+
+class LineQuestionIntent(StrEnum):
+    HELP = "HELP"
+    APPOINTMENTS = "APPOINTMENTS"
+    UNKNOWN = "UNKNOWN"
+
+
+def parse_line_question(text: str) -> LineQuestionIntent:
+    normalized = " ".join(text.strip().lower().split())
+    if not normalized:
+        return LineQuestionIntent.UNKNOWN
+    if any(keyword in normalized for keyword in ("ช่วยเหลือ", "เมนู", "คำสั่ง", "help")):
+        return LineQuestionIntent.HELP
+    if any(keyword in normalized for keyword in ("นัด", "วันไหน", "กำหนดการ", "appointment", "schedule")):
+        return LineQuestionIntent.APPOINTMENTS
+    return LineQuestionIntent.UNKNOWN
 
 
 class LineProvider(Protocol):
@@ -58,4 +76,8 @@ def build_flex_message(kind: str, payload: dict[str, Any]) -> dict[str, Any]:
     if buttons:
         bubble["footer"] = {"type": "box", "layout": "vertical", "spacing": "sm", "contents": buttons}
     return {"type": "flex", "altText": f"{title} วันที่ {date_text}", "contents": bubble}
+
+
+def build_text_message(text: str) -> dict[str, Any]:
+    return {"type": "text", "text": text[:5000]}
 
