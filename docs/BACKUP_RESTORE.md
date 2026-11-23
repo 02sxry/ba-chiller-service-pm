@@ -3,19 +3,20 @@
 ## Backup รายวัน
 
 ```bash
-docker compose -f deploy/local/compose.yaml exec -T db \
-  pg_dump -U ba_chiller -d ba_chiller -Fc > ba_chiller_YYYYMMDD.dump
+./scripts/backup_database.sh
+# หรือระบุปลายทางเอง
+./scripts/backup_database.sh /secure/path/ba_chiller_YYYYMMDD.dump
 ```
 
-เข้ารหัสไฟล์ backup เก็บนอก host และกำหนด retention ตามนโยบายบริษัท Google Drive source files ต้องมี backup policy แยกจาก database
+สคริปต์ไม่เขียนทับไฟล์เดิม ตั้ง permission ตาม `umask 077` และสร้างไฟล์ `.sha256` คู่กัน เข้ารหัส backup เก็บนอก host และกำหนด retention ตามนโยบายบริษัท Google Drive source files ต้องมี backup policy แยกจาก database
 
 ## Restore rehearsal
 
 สร้างฐานข้อมูลว่างใน isolated environment แล้วรัน
 
 ```bash
-pg_restore --clean --if-exists --no-owner --dbname=ba_chiller_restore ba_chiller_YYYYMMDD.dump
+./scripts/restore_rehearsal.sh /secure/path/ba_chiller_YYYYMMDD.dump
 ```
 
-ตรวจจำนวน hospitals, equipment, plans, slots, appointments, revisions, notification jobs และ audit logs จากนั้นเปิด API health และทดสอบ read-only reports ห้ามทดสอบ restore ทับ production โดยตรง
+สคริปต์ยอมให้ restore เฉพาะฐาน `ba_chiller_restore` หรือชื่อที่ขึ้นต้นด้วย `ba_chiller_restore_` และพิมพ์จำนวนข้อมูลสำคัญหลัง restore จากนั้นเปิด API health และทดสอบ read-only reports ห้ามทดสอบ restore ทับ production โดยตรง
 

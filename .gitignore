@@ -15,5 +15,7 @@ test-results/
 htmlcov/
 .cache/
 *.xlsx
+*.dump
+backups/
 !.github/
 

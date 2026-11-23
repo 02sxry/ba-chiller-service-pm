@@ -21,6 +21,8 @@
 | Full Compose cold start | ผ่าน | PostgreSQL -> migration/backend health -> frontend/worker/scheduler ตามลำดับ ไม่มี missing-table error |
 | HTTPS reverse proxy | ผ่าน | HTTP redirect, HTTPS 200, security headers และ `/api/v1/health` ผ่าน Caddy |
 | Admin bootstrap/login | ผ่าน | สร้าง Admin แบบ interactive ใน container, รับ bearer token และเรียก protected API HTTP 200 |
+| Backup/restore rehearsal | ผ่าน | custom-format dump + SHA-256, restore เข้า isolated database และ counts/ข้อมูลตรงต้นทาง |
+| Restore safety guard | ผ่าน | สคริปต์ปฏิเสธ target ที่ไม่ขึ้นต้นด้วย `ba_chiller_restore` |
 
 ## Business rules ที่ทดสอบ
 
@@ -52,7 +54,7 @@
 - Cloud Desktop เปิด browser ไม่ได้เพราะ browser runtime unavailable
 - Playwright ดาวน์โหลด Chromium ไม่ได้เพราะ CDN ตอบ HTTP 403 จึงยังไม่มี visual/E2E browser result
 - Real LINE, Google Sheets, Google Drive และ Gemini ไม่ได้ทดสอบเพราะไม่มี credentials และไม่มีสิทธิ์ส่งจริง
-- Backup restore และ network outage recovery ยังไม่ได้ทดสอบ
+- Network outage recovery และ webhook relay ยังไม่ได้ทดสอบ
 
 Docker build ครั้งแรกใน execution environment ติด proxy CA แบบ self-signed ทั้ง PyPI และ npm registry จากนั้น build ผ่านเมื่อส่ง CA เป็น BuildKit secret; certificate ไม่ถูก copy หรือฝังใน image
 

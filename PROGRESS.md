@@ -50,6 +50,7 @@ Operational integration milestone: LINE actions, Google staging sync และ c
 - Backend และ frontend production Docker image build ผ่าน
 - Production Compose configuration validation ผ่าน
 - Full Compose cold start, HTTPS reverse proxy, Admin bootstrap, login และ protected API smoke test ผ่าน
+- Database backup/checksum/isolated restore rehearsal ผ่าน และมีสคริปต์ป้องกัน restore ทับชื่อฐาน production
 
 ## ข้อจำกัดและงานคงเหลือ
 
@@ -57,7 +58,7 @@ Operational integration milestone: LINE actions, Google staging sync และ c
 - Natural-language LINE Q&A ยังต้องต่อจาก provider contract
 - Gemini production adapter ยังปิดใช้งาน
 - Playwright browser test ยังรันไม่ได้ เพราะ Cloud Desktop ไม่มี browser runtime และ CDN ดาวน์โหลด Chromium ตอบ 403
-- Backup restore rehearsal และ outage recovery ยังไม่ได้รัน
+- Network outage/worker recovery และ webhook relay ยังไม่ได้รัน
 - Private GitHub repository พร้อมใช้งานผ่าน GitHub connector แม้ GitHub CLI token ยังใช้ไม่ได้
 - ไม่มี credentials จริง จึงไม่ได้ทดสอบหรือส่ง LINE/Google/Gemini จริง
 
@@ -66,7 +67,7 @@ Operational integration milestone: LINE actions, Google staging sync และ c
 1. ทำ Google Sheets/Drive production adapters และ conflict resolution UI
 2. ทำ deterministic LINE Q&A และ reply adapter
 3. เพิ่ม worker crash/retry tests และ browser E2E
-4. ทดสอบ backup/restore และ webhook relay ใน isolated environment
+4. ทดสอบ network outage/worker recovery และ webhook relay ใน isolated environment
 5. ทำ acceptance rehearsal ด้วยข้อมูลจำลองก่อนเชื่อม credentials จริง
 
 ## Latest Git commit

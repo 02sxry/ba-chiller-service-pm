@@ -2,7 +2,7 @@
 
 ## สถานะ
 
-ระบบผ่าน milestone สำหรับ core domain, operational integration และ local production runtime ยังไม่พร้อมรับ development acceptance ตาม Definition of Done ฉบับเต็ม เนื่องจาก production adapters, recovery rehearsal และ browser E2E ยังไม่ครบ
+ระบบผ่าน milestone สำหรับ core domain, operational integration และ local production runtime ยังไม่พร้อมรับ development acceptance ตาม Definition of Done ฉบับเต็ม เนื่องจาก production adapters, outage recovery และ browser E2E ยังไม่ครบ
 
 ## ใช้งานได้แล้ว
 
@@ -23,6 +23,7 @@
 - Mock integration mode และ local deployment artifacts
 - Backend/frontend production image build และ Compose configuration validation
 - Full Compose cold start, HTTPS proxy และ Admin bootstrap/login smoke path
+- Database backup/checksum และ isolated restore rehearsal
 
 ## สิ่งที่ทดสอบจริง
 
@@ -30,7 +31,7 @@
 
 ## สิ่งที่ยังไม่ยืนยัน
 
-Real external integrations, restore rehearsal, browser E2E และ worker outage recovery
+Real external integrations, browser E2E และ worker outage recovery
 
 ## เริ่มระบบ
 
