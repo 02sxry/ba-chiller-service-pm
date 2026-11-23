@@ -30,7 +30,9 @@ from app.domain.schemas import (
     AppointmentApproveRequest,
     AppointmentSummary,
     AppointmentView,
+    ApproveEquipmentDraftRequest,
     ApproveHospitalDraftRequest,
+    ApprovePlanDraftRequest,
     BulkApprovalRequest,
     BulkApprovalResult,
     ConfirmRequest,
@@ -66,7 +68,13 @@ from app.services.appointments import (
     technician_date_change,
 )
 from app.services.audit import record_audit
-from app.services.drafts import DraftError, approve_hospital_as_new, match_hospital_draft
+from app.services.drafts import (
+    DraftError,
+    approve_equipment_draft,
+    approve_hospital_as_new,
+    approve_plan_draft,
+    match_hospital_draft,
+)
 from app.services.intake import create_text_intake, parse_excel
 from app.services.matching import recommend_slots
 from app.services.planning import (
@@ -184,6 +192,50 @@ def match_hospital_draft_endpoint(
         db.refresh(hospital)
         return hospital
     except (DraftError, IntegrityError) as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/drafts/{draft_id}/approve-equipment", response_model=EquipmentView, tags=["drafts"])
+def approve_equipment_draft_endpoint(
+    draft_id: uuid.UUID,
+    request: ApproveEquipmentDraftRequest,
+    db: Db,
+    admin: AdminUser,
+) -> Equipment:
+    try:
+        equipment = approve_equipment_draft(
+            db,
+            draft_id,
+            admin=admin,
+            **request.model_dump(),
+        )
+        db.commit()
+        db.refresh(equipment)
+        return equipment
+    except (DraftError, IntegrityError, ValueError) as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/drafts/{draft_id}/approve-plan", response_model=PlanView, tags=["drafts"])
+def approve_plan_draft_endpoint(
+    draft_id: uuid.UUID,
+    request: ApprovePlanDraftRequest,
+    db: Db,
+    admin: AdminUser,
+) -> AnnualPlan:
+    try:
+        plan = approve_plan_draft(
+            db,
+            draft_id,
+            admin=admin,
+            **request.model_dump(),
+        )
+        db.commit()
+        db.refresh(plan)
+        return plan
+    except (DraftError, PlanningError, IntegrityError, ValueError) as exc:
         db.rollback()
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 

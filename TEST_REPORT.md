@@ -6,7 +6,7 @@
 
 | ชุดทดสอบ | ผล | หลักฐาน |
 |---|---:|---|
-| Backend business rules | 23 passed | pytest กับ PostgreSQL 17 container, 0 failed |
+| Backend business rules | 25 passed | pytest กับ PostgreSQL 17 container, 0 failed |
 | Python lint | ผ่าน | Ruff ตรวจ app, tests และ Alembic environment |
 | PostgreSQL migration | ผ่าน | Alembic upgrade revision `1b6004596e27` |
 | Schema drift | ผ่าน | Alembic check รายงาน `No new upgrade operations detected` |
@@ -27,6 +27,7 @@
 - LINE HMAC signature ถูก/ผิด
 - Unknown hospital สร้าง reviewable Draft
 - Draft อนุมัติเป็น hospital ใหม่หรือ match พร้อม alias ได้
+- Dependent Draft ปฏิเสธการอนุมัติผิดลำดับ และอนุมัติ Hospital -> Equipment -> PM Plan ได้ครบ
 - Hospital confirmation เก็บ revision ที่ยืนยัน
 - Technician date change สร้าง revision 2, คง Slot และ confirmed revision เดิม
 - Duplicate appointment ใน Slot เดิมถูกปฏิเสธ

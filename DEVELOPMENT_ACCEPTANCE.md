@@ -2,13 +2,13 @@
 
 ## สถานะ
 
-ระบบผ่าน milestone สำหรับ core domain และ integration-ready architecture ยังไม่พร้อมรับ development acceptance ตาม Definition of Done ฉบับเต็ม เนื่องจาก production adapters, dependent drafts บางชนิด, frontend operational screens และ browser E2E ยังไม่ครบ
+ระบบผ่าน milestone สำหรับ core domain และ integration-ready architecture ยังไม่พร้อมรับ development acceptance ตาม Definition of Done ฉบับเต็ม เนื่องจาก production adapters, frontend operational screens บางส่วน และ browser E2E ยังไม่ครบ
 
 ## ใช้งานได้แล้ว
 
 - PostgreSQL migration และ authoritative business state
 - Authentication/role enforcement foundation
-- Hospital master data และ Hospital Draft review
+- Hospital/Equipment master data และ dependent Draft review ถึง PM Plan
 - Annual plan, PM Slot และ next-year drafts
 - Thai text/XLSX parsing foundation
 - Slot recommendation
@@ -21,7 +21,7 @@
 
 ## สิ่งที่ทดสอบจริง
 
-ดู `TEST_REPORT.md` ผลล่าสุดคือ backend 23 tests ผ่าน, lint/build/migration/schema check/API health ผ่าน
+ดู `TEST_REPORT.md` ผลล่าสุดคือ backend 25 tests ผ่าน, lint/build/migration/schema check/API health ผ่าน
 
 ## สิ่งที่ยังไม่ยืนยัน
 

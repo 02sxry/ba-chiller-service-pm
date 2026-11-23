@@ -267,6 +267,24 @@ class MatchHospitalDraftRequest(BaseModel):
     add_alias: bool = True
 
 
+class ApproveEquipmentDraftRequest(BaseModel):
+    equipment_code: str = Field(min_length=1, max_length=50)
+    equipment_name: str = Field(min_length=1, max_length=255)
+    manufacturer_id: uuid.UUID | None = None
+    equipment_type_id: uuid.UUID | None = None
+    model: str | None = None
+    serial_number: str | None = None
+    room_location: str | None = None
+    notes: str | None = None
+
+
+class ApprovePlanDraftRequest(BaseModel):
+    annual_frequency: int = Field(ge=1, le=12)
+    planning_mode: PlanningMode
+    start_month: int | None = Field(default=None, ge=1, le=12)
+    planned_months: list[int] | None = None
+
+
 class HealthResponse(BaseModel):
     status: str
     database: str
