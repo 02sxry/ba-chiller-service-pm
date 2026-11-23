@@ -71,7 +71,7 @@ Docker build ครั้งแรกใน execution environment ติด prox
 
 ## ผลการตรวจหลังเพิ่ม Google production adapter
 
-- PostgreSQL 17 isolated container: `pytest -q` ผ่าน 48 tests
+- PostgreSQL 17 isolated container: `pytest -q` ผ่าน 51 tests
 - Ruff: ผ่าน `ruff check app tests alembic --exclude alembic/versions`
 - Frontend: ผ่าน `npm ci && npm run build`
 - Alembic: migration `upgrade head` ผ่าน
@@ -80,6 +80,7 @@ Docker build ครั้งแรกใน execution environment ติด prox
 - Google Sheets stable row update: ผ่าน provider contract test สำหรับ existing row และไม่เพิ่มข้อมูลซ้ำเมื่อ retry
 - Google Drive folder routing: ผ่าน missing-folder safety test
 - LINE Messaging API adapter: ผ่าน provider contract tests ด้วย fake HTTP client; ไม่มีการเรียก endpoint จริง
+- Gemini adapter: ผ่าน JSON contract/fallback tests ด้วย fake HTTP client; ไม่มีการเรียก endpoint จริง
 
 การทดสอบครั้งนี้ไม่ใช้ Google credentials และไม่มีการส่งข้อมูลออกไปยัง Google Workspace จริง
 
