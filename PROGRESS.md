@@ -57,6 +57,7 @@ Operational integration milestone: Google provider adapter และ container b
 - เพิ่มตัวกรองรอบ PM ตามโรงพยาบาล เครื่อง รุ่น ปี และเดือน พร้อมไฟล์ Google Sheets workbook template ที่มีชีตเริ่มต้นและคำอธิบายภาษาไทย
 - เพิ่มหน้า Admin กรอกข้อมูลฐานข้อมูลหน้าเดียว พร้อมแก้ไขและปิดใช้งานโรงพยาบาล/อุปกรณ์ โดยไม่ลบประวัติถาวร
 - ปรับ local password policy เป็นอย่างน้อย 4 ตัว และเพิ่มคำสั่ง `ensure-admin` สำหรับซ่อม User ID `admin` ให้เป็น ADMIN
+- เพิ่ม Admin user management: แก้ไขชื่อ/สิทธิ์/รหัสผ่าน และปิดใช้งาน User พร้อมป้องกันปิดตัวเองหรือปิด Admin คนสุดท้าย
 
 ## Tests executed
 

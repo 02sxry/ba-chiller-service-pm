@@ -23,6 +23,12 @@ class UserCreateRequest(BaseModel):
     role: Role = Role.VIEWER
 
 
+class UserUpdateRequest(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=255)
+    password: str | None = Field(default=None, min_length=4, max_length=255)
+    role: Role | None = None
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

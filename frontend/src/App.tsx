@@ -73,7 +73,7 @@ export default function App() {
         <Route path="/equipment" element={<EquipmentPage />} />
         <Route path="/planner" element={<PlannerPage />} />
         <Route path="/slots" element={<SlotsPage />} />
-        <Route path="/users" element={<UsersPage />} />
+        <Route path="/users" element={<AdminOnly><UsersPage /></AdminOnly>} />
         <Route path="/drafts" element={<DraftsPage />} />
         <Route path="/intakes" element={<ApprovalQueuePage />} />
         <Route path="/approvals" element={<ApprovalQueuePage />} />

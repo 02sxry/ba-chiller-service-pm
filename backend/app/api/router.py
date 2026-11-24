@@ -66,6 +66,7 @@ from app.domain.schemas import (
     TextIntakeRequest,
     TokenResponse,
     UserCreateRequest,
+    UserUpdateRequest,
     UserView,
 )
 from app.integrations.gemini import build_intent_provider
@@ -167,6 +168,53 @@ def create_user(request: UserCreateRequest, db: Db, admin: AdminUser) -> User:
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=409, detail="มี User ID นี้แล้ว") from exc
+
+
+@router.patch("/users/{user_id}", response_model=UserView, tags=["users"])
+def update_user(user_id: uuid.UUID, request: UserUpdateRequest, db: Db, admin: AdminUser) -> User:
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="ไม่พบผู้ใช้งาน")
+    updates = request.model_dump(exclude_unset=True)
+    if not updates:
+        return user
+    if user.id == admin.id and updates.get("role") == Role.VIEWER:
+        raise HTTPException(status_code=409, detail="ไม่สามารถลดสิทธิ์ของตัวเองขณะใช้งานอยู่")
+    if updates.get("role") == Role.VIEWER and user.role == Role.ADMIN:
+        active_admins = db.scalar(select(func.count()).select_from(User).where(User.role == Role.ADMIN, User.active.is_(True))) or 0
+        if active_admins <= 1:
+            raise HTTPException(status_code=409, detail="ต้องมี Admin ที่ใช้งานได้อย่างน้อย 1 คน")
+    old_values = {"display_name": user.display_name, "role": user.role.value, "active": user.active}
+    if "display_name" in updates:
+        user.display_name = updates["display_name"].strip()
+    if "password" in updates and updates["password"]:
+        user.password_hash = hash_password(updates["password"])
+    if "role" in updates and updates["role"] is not None:
+        user.role = updates["role"]
+    db.flush()
+    record_audit(db, actor=admin, action="USER_UPDATED", entity_type="user", entity_id=user.id, old_values=old_values, new_values={key: value.value if isinstance(value, Role) else value for key, value in updates.items() if key != "password"})
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.delete("/users/{user_id}", response_model=UserView, tags=["users"])
+def deactivate_user(user_id: uuid.UUID, db: Db, admin: AdminUser) -> User:
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="ไม่พบผู้ใช้งาน")
+    if user.id == admin.id:
+        raise HTTPException(status_code=409, detail="ไม่สามารถปิดใช้งานตัวเองได้")
+    if user.role == Role.ADMIN:
+        active_admins = db.scalar(select(func.count()).select_from(User).where(User.role == Role.ADMIN, User.active.is_(True))) or 0
+        if active_admins <= 1:
+            raise HTTPException(status_code=409, detail="ต้องมี Admin ที่ใช้งานได้อย่างน้อย 1 คน")
+    user.active = False
+    db.flush()
+    record_audit(db, actor=admin, action="USER_DEACTIVATED", entity_type="user", entity_id=user.id, new_values={"active": False})
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 @router.get("/hospitals", response_model=list[HospitalView], tags=["master-data"])

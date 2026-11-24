@@ -97,3 +97,5 @@ Docker build ครั้งแรกใน execution environment ติด prox
 
 หลังปรับ local password policy และ Admin repair command: backend compile, `git diff --check` และ frontend build ผ่าน; ยังไม่ได้ทดสอบสิทธิ์กับฐานข้อมูลของผู้ใช้โดยตรง
 
+หลังเพิ่ม User management endpoints และ UI: backend compile, `git diff --check` และ frontend production build ผ่าน; ยังไม่ได้รัน integration test ที่ต้องใช้ PostgreSQL จริง
+
