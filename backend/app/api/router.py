@@ -1,4 +1,5 @@
 import hashlib
+import re
 import uuid
 from datetime import UTC, date, datetime
 from typing import Annotated
@@ -103,6 +104,18 @@ from app.services.planning import (
 
 router = APIRouter()
 Db = Annotated[Session, Depends(get_db)]
+
+
+def _normalize_chiller_serial(data: dict[str, object]) -> None:
+    equipment_name = str(data.get("equipment_name") or "")
+    model = str(data.get("model") or "")
+    serial_number = data.get("serial_number")
+    if not isinstance(serial_number, str) or not serial_number.strip():
+        return
+    serial_number = re.sub(r"-CH$", "", serial_number.strip(), flags=re.IGNORECASE)
+    if "chiller" in f"{equipment_name} {model}".casefold():
+        serial_number = f"{serial_number}-CH"
+    data["serial_number"] = serial_number
 
 
 @router.get("/health", response_model=HealthResponse, tags=["system"])
@@ -431,6 +444,7 @@ def create_equipment(request: EquipmentCreate, db: Db, admin: AdminUser) -> Equi
     if not db.get(Hospital, request.hospital_id):
         raise HTTPException(status_code=404, detail="ไม่พบโรงพยาบาล")
     data = request.model_dump()
+    _normalize_chiller_serial(data)
     data["equipment_code"] = data["equipment_code"] or f"EQUIP-{uuid.uuid4().hex[:10].upper()}"
     equipment = Equipment(**data)
     db.add(equipment)
@@ -455,6 +469,14 @@ def update_equipment(equipment_id: uuid.UUID, request: EquipmentUpdate, db: Db, 
     updates = request.model_dump(exclude_unset=True)
     if updates.get("hospital_id") and not db.get(Hospital, updates["hospital_id"]):
         raise HTTPException(status_code=404, detail="ไม่พบโรงพยาบาลใหม่")
+    equipment_data = {
+        "equipment_name": updates.get("equipment_name", equipment.equipment_name),
+        "model": updates.get("model", equipment.model),
+        "serial_number": updates.get("serial_number", equipment.serial_number),
+    }
+    _normalize_chiller_serial(equipment_data)
+    if equipment_data["serial_number"] != equipment.serial_number:
+        updates["serial_number"] = equipment_data["serial_number"]
     old_values = {field: getattr(equipment, field) for field in updates}
     for field, value in updates.items():
         setattr(equipment, field, value.strip() if isinstance(value, str) and value else value)
@@ -534,15 +556,22 @@ def delete_equipment_permanently(equipment_id: uuid.UUID, db: Db, admin: AdminUs
     if equipment.active:
         raise HTTPException(status_code=409, detail="ต้องเก็บอุปกรณ์เข้า Archive ก่อนจึงจะลบถาวรได้")
 
-    dependencies = {
-        "แผน PM": db.scalar(select(func.count()).select_from(AnnualPlan).where(AnnualPlan.equipment_id == equipment.id)) or 0,
-        "แผนปีถัดไป": db.scalar(select(func.count()).select_from(NextYearPlanDraft).where(NextYearPlanDraft.equipment_id == equipment.id)) or 0,
-        "รอบ PM": db.scalar(select(func.count()).select_from(PMSlot).where(PMSlot.equipment_id == equipment.id)) or 0,
-        "นัดหมาย": db.scalar(select(func.count()).select_from(Appointment).where(Appointment.equipment_id == equipment.id)) or 0,
-    }
-    used_by = [f"{label} {count} รายการ" for label, count in dependencies.items() if count]
-    if used_by:
-        raise HTTPException(status_code=409, detail=f"ลบถาวรไม่ได้เพราะมีข้อมูลที่อ้างถึงอุปกรณ์นี้: {', '.join(used_by)} ให้เก็บ Archive ไว้แทน")
+    appointment_count = db.scalar(
+        select(func.count()).select_from(Appointment).where(Appointment.equipment_id == equipment.id)
+    ) or 0
+    if appointment_count:
+        raise HTTPException(
+            status_code=409,
+            detail=f"ลบถาวรไม่ได้เพราะมีนัดหมาย {appointment_count} รายการอ้างถึงอุปกรณ์นี้ ให้เก็บ Archive ไว้แทนเพื่อรักษาประวัตินัด",
+        )
+
+    plans = db.scalars(select(AnnualPlan).where(AnnualPlan.equipment_id == equipment.id)).all()
+    drafts = db.scalars(select(NextYearPlanDraft).where(NextYearPlanDraft.equipment_id == equipment.id)).all()
+    for draft in drafts:
+        db.delete(draft)
+    for plan in plans:
+        db.delete(plan)
+    db.flush()
 
     response = equipment
     record_audit(
@@ -552,6 +581,7 @@ def delete_equipment_permanently(equipment_id: uuid.UUID, db: Db, admin: AdminUs
         entity_type="equipment",
         entity_id=equipment.id,
         old_values={"equipment_code": equipment.equipment_code, "equipment_name": equipment.equipment_name},
+        new_values={"plans_deleted": len(plans), "next_year_drafts_deleted": len(drafts)},
     )
     db.delete(equipment)
     db.commit()
