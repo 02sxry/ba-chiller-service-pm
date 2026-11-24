@@ -145,7 +145,9 @@ def list_hospitals(db: Db, _: CurrentUser, active: bool | None = None) -> list[H
 
 @router.post("/hospitals", response_model=HospitalView, status_code=201, tags=["master-data"])
 def create_hospital(request: HospitalCreate, db: Db, admin: AdminUser) -> Hospital:
-    hospital = Hospital(**request.model_dump())
+    data = request.model_dump()
+    data["hospital_code"] = data["hospital_code"] or f"HOSP-{uuid.uuid4().hex[:10].upper()}"
+    hospital = Hospital(**data)
     db.add(hospital)
     try:
         db.flush()
@@ -153,7 +155,7 @@ def create_hospital(request: HospitalCreate, db: Db, admin: AdminUser) -> Hospit
         raise HTTPException(status_code=409, detail="รหัสโรงพยาบาลซ้ำ") from exc
     record_audit(
         db, actor=admin, action="HOSPITAL_CREATED", entity_type="hospital",
-        entity_id=hospital.id, new_values=request.model_dump(mode="json"),
+        entity_id=hospital.id, new_values=data,
     )
     db.commit()
     db.refresh(hospital)
@@ -262,7 +264,9 @@ def list_equipment(db: Db, _: CurrentUser, hospital_id: uuid.UUID | None = None)
 def create_equipment(request: EquipmentCreate, db: Db, admin: AdminUser) -> Equipment:
     if not db.get(Hospital, request.hospital_id):
         raise HTTPException(status_code=404, detail="ไม่พบโรงพยาบาล")
-    equipment = Equipment(**request.model_dump())
+    data = request.model_dump()
+    data["equipment_code"] = data["equipment_code"] or f"EQUIP-{uuid.uuid4().hex[:10].upper()}"
+    equipment = Equipment(**data)
     db.add(equipment)
     try:
         db.flush()
@@ -270,7 +274,7 @@ def create_equipment(request: EquipmentCreate, db: Db, admin: AdminUser) -> Equi
         raise HTTPException(status_code=409, detail="รหัสหรือข้อมูลระบุอุปกรณ์ซ้ำ") from exc
     record_audit(
         db, actor=admin, action="EQUIPMENT_CREATED", entity_type="equipment",
-        entity_id=equipment.id, new_values=request.model_dump(mode="json"),
+        entity_id=equipment.id, new_values=data,
     )
     db.commit()
     db.refresh(equipment)

@@ -30,7 +30,7 @@ class UserView(ORMModel):
 
 
 class HospitalCreate(BaseModel):
-    hospital_code: str = Field(min_length=1, max_length=50)
+    hospital_code: str | None = Field(default=None, min_length=1, max_length=50)
     hospital_name: str = Field(min_length=1, max_length=255)
     short_name: str | None = Field(default=None, max_length=120)
     notes: str | None = None
@@ -45,7 +45,7 @@ class HospitalView(HospitalCreate, ORMModel):
 
 
 class EquipmentCreate(BaseModel):
-    equipment_code: str = Field(min_length=1, max_length=50)
+    equipment_code: str | None = Field(default=None, min_length=1, max_length=50)
     hospital_id: uuid.UUID
     manufacturer_id: uuid.UUID | None = None
     equipment_type_id: uuid.UUID | None = None
