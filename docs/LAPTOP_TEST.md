@@ -10,6 +10,21 @@
 
 ไม่ต้องติดตั้ง Python หรือ Node.js หากใช้วิธี Docker Compose ในคู่มือนี้
 
+## ลิงก์ดาวน์โหลดสำหรับ Windows
+
+ถ้าทดลองด้วย Docker Desktop ให้ติดตั้งเฉพาะ Docker Desktop และ Git:
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- [Git for Windows](https://git-scm.com/download/win)
+
+ถ้าไม่ใช้ Docker Desktop ให้ติดตั้งเพิ่มเอง:
+
+- [Python 3.12 ขึ้นไป](https://www.python.org/downloads/windows/) — ตอนติดตั้งให้ติ๊ก `Add Python to PATH`
+- [Node.js 24 ขึ้นไป](https://nodejs.org/en/download)
+- [PostgreSQL สำหรับ Windows](https://www.postgresql.org/download/windows/)
+
+ขั้นตอนด้านล่างของคู่มือนี้เป็น Docker Compose ส่วนวิธีติดตั้งแบบไม่ใช้ Docker อยู่ในหัวข้อท้ายคู่มือ
+
 ## 1. ดาวน์โหลดและสร้างไฟล์ตั้งค่า
 
 เปิด PowerShell หรือ Terminal แล้วรัน:
@@ -140,6 +155,114 @@ cat backup.sql | docker compose --env-file .env -f deploy/local/compose.yaml exe
 - Service ยังไม่ healthy: รอ migration แล้วดู `docker compose ... logs --tail=100 backend db`
 - Browser เตือน certificate: ใช้เฉพาะ local และเข้า `https://localhost` ตามขั้นตอนด้านบน
 - ห้ามใส่ LINE token, Google service-account JSON หรือ Gemini key ใน Git และอย่าเปิด integration จริงระหว่างการทดลองครั้งแรก
+
+## ถ้าไม่ใช้ Docker Desktop (Windows)
+
+วิธีนี้ต้องเปิด Backend, Frontend, Worker และ Scheduler แยกกันหลายหน้าต่าง โดยติดตั้ง Python, Node.js และ PostgreSQL จากลิงก์ด้านบนก่อน
+
+### 1. ตั้งค่า PostgreSQL
+
+ระหว่างติดตั้ง PostgreSQL สำหรับเครื่องทดสอบนี้ ให้ใช้ค่าดังนี้:
+
+```text
+Username: admin
+Password: admin
+Port: 5432
+```
+
+ค่าดังกล่าวใช้สำหรับ local notebook เท่านั้น ห้ามใช้บน local server จริงหรือ production
+
+เปิด pgAdmin 4 > Query Tool แล้วสร้างฐานข้อมูล:
+
+```sql
+CREATE DATABASE ba_chiller OWNER admin;
+```
+
+ถ้า installer สร้าง user `admin` ให้แล้ว ไม่ต้องสร้าง user ซ้ำ หากยังไม่มี user ให้รัน:
+
+```sql
+CREATE USER admin WITH PASSWORD 'admin';
+CREATE DATABASE ba_chiller OWNER admin;
+```
+
+### 2. ดาวน์โหลดโค้ดและตั้งค่า `.env`
+
+```powershell
+git clone https://github.com/02sxry/ba-chiller-service-pm.git
+cd ba-chiller-service-pm
+Copy-Item .env.example .env
+```
+
+แก้ค่าใน `.env` เป็นแบบติดตั้งตรงบน Windows:
+
+```dotenv
+APP_ENV=development
+APP_HOST=localhost
+SECRET_KEY=local-notebook-secret-key
+POSTGRES_PASSWORD=admin
+DATABASE_URL=postgresql+psycopg://admin:admin@localhost:5432/ba_chiller
+DATABASE_URL_SYNC=postgresql+psycopg://admin:admin@localhost:5432/ba_chiller
+FRONTEND_ORIGIN=http://localhost:5173
+NOTIFICATIONS_ENABLED=false
+NOTIFICATION_KILL_SWITCH=true
+GOOGLE_USE_REAL_PROVIDER=false
+LINE_CHANNEL_SECRET=
+LINE_CHANNEL_ACCESS_TOKEN=
+GEMINI_API_KEY=
+```
+
+### 3. ติดตั้งและเปิด Backend
+
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+alembic upgrade head
+python -m app.cli bootstrap-admin
+uvicorn app.main:app --reload
+```
+
+ถ้า PowerShell บล็อกการ activate ให้รันก่อนหนึ่งครั้งในหน้าต่างนั้น:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+```
+
+เปิดทิ้งไว้ที่ `http://localhost:8000`
+
+### 4. เปิด Frontend
+
+เปิด PowerShell ใหม่:
+
+```powershell
+cd ba-chiller-service-pm\frontend
+npm install
+npm run dev
+```
+
+เปิดเว็บที่ `http://localhost:5173`
+
+### 5. เปิด Worker และ Scheduler
+
+เปิด PowerShell เพิ่มอีกสองหน้าต่าง แล้วรันคำสั่งต่อไปนี้ โดยต้อง activate `.venv` ทุกหน้าต่าง:
+
+```powershell
+cd ba-chiller-service-pm\backend
+.\.venv\Scripts\Activate.ps1
+python -m app.worker
+```
+
+และอีกหน้าต่าง:
+
+```powershell
+cd ba-chiller-service-pm\backend
+.\.venv\Scripts\Activate.ps1
+python -m app.scheduler
+```
+
+สำหรับทดสอบหน้าเว็บและ API เบื้องต้น เปิดแค่ Backend กับ Frontend ก็พอ ส่วน Worker/Scheduler จำเป็นเมื่อทดสอบ outbox, notification และงานตามเวลา
 
 ## เมื่อนำขึ้น local server จริง
 
