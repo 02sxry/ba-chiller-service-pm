@@ -188,3 +188,45 @@ def test_archiving_equipment_closes_linked_pm_data(db) -> None:
         assert client.get("/api/v1/slots?plan_year=2035", headers=headers).json() == []
     finally:
         app.dependency_overrides.clear()
+
+
+def test_archived_equipment_with_closed_plan_can_be_deleted_permanently(db) -> None:
+    admin = make_user(db, "admin-delete-equipment@example.com", Role.ADMIN)
+    hospital = Hospital(hospital_code="DEL-H1", hospital_name="โรงพยาบาล Delete")
+    db.add(hospital)
+    db.flush()
+    client = client_for(db)
+    headers = {"Authorization": f"Bearer {create_access_token(admin)}"}
+    try:
+        created = client.post(
+            "/api/v1/equipment",
+            headers=headers,
+            json={
+                "hospital_id": str(hospital.id),
+                "equipment_code": "DEL-E1",
+                "equipment_name": "เครื่อง Delete",
+                "model": "Chiller",
+                "serial_number": "001",
+            },
+        )
+        assert created.status_code == 201
+        assert created.json()["serial_number"] == "001-CH"
+        equipment_id = created.json()["id"]
+        plan_response = client.post(
+            "/api/v1/plans/approve",
+            headers=headers,
+            json={
+                "equipment_id": equipment_id,
+                "plan_year": 2037,
+                "annual_frequency": 1,
+                "planning_mode": PlanningMode.AUTOMATIC.value,
+                "start_month": 1,
+            },
+        )
+        assert plan_response.status_code == 201
+        assert client.delete(f"/api/v1/equipment/{equipment_id}", headers=headers).status_code == 200
+        deleted = client.delete(f"/api/v1/equipment/{equipment_id}/permanent", headers=headers)
+        assert deleted.status_code == 200
+        assert all(item["id"] != equipment_id for item in client.get("/api/v1/equipment/archive", headers=headers).json())
+    finally:
+        app.dependency_overrides.clear()
