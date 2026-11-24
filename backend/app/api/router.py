@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.db import get_db
-from app.core.security import AdminUser, CurrentUser, create_access_token, verify_password
-from app.domain.enums import AppointmentStatus, NotificationStatus, SyncStatus
+from app.core.security import AdminUser, CurrentUser, create_access_token, hash_password, verify_password
+from app.domain.enums import AppointmentStatus, NotificationStatus, Role, SyncStatus
 from app.domain.models import (
     AnnualPlan,
     Appointment,
@@ -63,6 +63,7 @@ from app.domain.schemas import (
     SyncEventView,
     TextIntakeRequest,
     TokenResponse,
+    UserCreateRequest,
     UserView,
 )
 from app.integrations.gemini import build_intent_provider
@@ -133,6 +134,37 @@ def login(request: LoginRequest, db: Db) -> TokenResponse:
 @router.get("/auth/me", response_model=UserView, tags=["auth"])
 def me(user: CurrentUser) -> User:
     return user
+
+
+@router.get("/users", response_model=list[UserView], tags=["users"])
+def list_users(db: Db, _: AdminUser) -> list[User]:
+    return list(db.scalars(select(User).order_by(User.username)).all())
+
+
+@router.post("/users", response_model=UserView, status_code=201, tags=["users"])
+def create_user(request: UserCreateRequest, db: Db, admin: AdminUser) -> User:
+    username = request.username.strip().lower()
+    if not username or any(char.isspace() for char in username):
+        raise HTTPException(status_code=422, detail="User ID ต้องไม่ว่างและห้ามมีช่องว่าง")
+    if db.scalar(select(User).where(User.username == username)):
+        raise HTTPException(status_code=409, detail="มี User ID นี้แล้ว")
+    user = User(
+        username=username,
+        email=f"{username}@local.invalid",
+        display_name=request.display_name.strip(),
+        password_hash=hash_password(request.password),
+        role=request.role,
+    )
+    db.add(user)
+    try:
+        db.flush()
+        record_audit(db, actor=admin, action="USER_CREATED", entity_type="user", entity_id=user.id, new_values={"username": username, "role": request.role.value})
+        db.commit()
+        db.refresh(user)
+        return user
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="มี User ID นี้แล้ว") from exc
 
 
 @router.get("/hospitals", response_model=list[HospitalView], tags=["master-data"])
@@ -534,6 +566,8 @@ def list_appointments(
         AppointmentSummary(
             id=appointment.id,
             reference=f"BA-{str(appointment.id)[:8].upper()}",
+            hospital_id=appointment.hospital_id,
+            equipment_id=appointment.equipment_id,
             hospital_name=hospital_name,
             equipment_name=equipment_name,
             plan_year=row_plan_year,

@@ -21,6 +21,7 @@ button { cursor: pointer; }
 .collapse-button { height: 48px; border: 0; border-top: 1px solid #18344d; color: #7892a8; background: transparent; display: flex; align-items: center; gap: 12px; padding: 0 22px; white-space: nowrap; }
 .compact .brand-copy, .compact .sidebar nav span, .compact .collapse-button span { opacity: 0; pointer-events: none; }
 .compact .sidebar nav a { justify-content: center; padding: 0; }
+.compact .sidebar nav a svg { display: block; visibility: visible; opacity: 1; flex: 0 0 18px; }
 main { min-width: 0; }
 .topbar { height: 64px; padding: 0 clamp(20px, 4vw, 48px); background: rgba(255,255,255,.94); border-bottom: 1px solid #dce5ec; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; backdrop-filter: blur(12px); }
 .environment { font-size: 12px; color: #64758a; display: flex; align-items: center; gap: 8px; }
