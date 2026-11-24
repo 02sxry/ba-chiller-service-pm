@@ -153,7 +153,9 @@ def create_user(request: UserCreateRequest, db: Db, admin: AdminUser) -> User:
         raise HTTPException(status_code=409, detail="มี User ID นี้แล้ว")
     user = User(
         username=username,
-        email=f"{username}@local.invalid",
+        # The email column is retained for compatibility, but users sign in with
+        # username. Use a valid internal domain so UserView validation succeeds.
+        email=f"{username}@local.dev",
         display_name=request.display_name.strip(),
         password_hash=hash_password(request.password),
         role=request.role,
@@ -192,7 +194,20 @@ def update_user(user_id: uuid.UUID, request: UserUpdateRequest, db: Db, admin: A
     if "role" in updates and updates["role"] is not None:
         user.role = updates["role"]
     db.flush()
-    record_audit(db, actor=admin, action="USER_UPDATED", entity_type="user", entity_id=user.id, old_values=old_values, new_values={key: value.value if isinstance(value, Role) else value for key, value in updates.items() if key != "password"})
+    new_values = {
+        key: value.value if isinstance(value, Role) else value
+        for key, value in updates.items()
+        if key != "password"
+    }
+    record_audit(
+        db,
+        actor=admin,
+        action="USER_UPDATED",
+        entity_type="user",
+        entity_id=user.id,
+        old_values=old_values,
+        new_values=new_values,
+    )
     db.commit()
     db.refresh(user)
     return user
