@@ -25,6 +25,7 @@ const navigation = [
   ['LINE Groups', '/line-groups', Users],
   ['รายงาน', '/reports', Building2],
   ['ตั้งค่า', '/settings', Settings],
+  ['ผู้ใช้งานและสิทธิ์', '/users', Users],
 ] as const
 
 export function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => void }) {

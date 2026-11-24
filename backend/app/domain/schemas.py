@@ -16,6 +16,13 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class UserCreateRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=100)
+    display_name: str = Field(min_length=1, max_length=255)
+    password: str = Field(min_length=12, max_length=255)
+    role: Role = Role.VIEWER
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -27,6 +34,7 @@ class UserView(ORMModel):
     email: EmailStr
     display_name: str
     role: Role
+    active: bool
 
 
 class HospitalCreate(BaseModel):
@@ -158,6 +166,8 @@ class AppointmentView(ORMModel):
 class AppointmentSummary(BaseModel):
     id: uuid.UUID
     reference: str
+    hospital_id: uuid.UUID
+    equipment_id: uuid.UUID
     hospital_name: str
     equipment_name: str
     plan_year: int
