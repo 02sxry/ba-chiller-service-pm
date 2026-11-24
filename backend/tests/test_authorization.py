@@ -61,3 +61,23 @@ def test_admin_can_create_hospital(db) -> None:
         assert response.json()["hospital_code"] == "AUTH-H2"
     finally:
         app.dependency_overrides.clear()
+
+
+def test_admin_me_accepts_internal_legacy_email(db) -> None:
+    admin = User(
+        username="admin",
+        email="admin@local.invalid",
+        password_hash="unused",
+        display_name="Admin",
+        role=Role.ADMIN,
+    )
+    db.add(admin)
+    db.flush()
+    client = client_for(db)
+    headers = {"Authorization": f"Bearer {create_access_token(admin)}"}
+    try:
+        response = client.get("/api/v1/auth/me", headers=headers)
+        assert response.status_code == 200
+        assert response.json()["username"] == "admin"
+    finally:
+        app.dependency_overrides.clear()
