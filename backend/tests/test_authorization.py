@@ -81,3 +81,17 @@ def test_admin_me_accepts_internal_legacy_email(db) -> None:
         assert response.json()["username"] == "admin"
     finally:
         app.dependency_overrides.clear()
+
+
+def test_admin_can_delete_unused_user_permanently(db) -> None:
+    admin = make_user(db, "admin-delete@example.com", Role.ADMIN)
+    target = make_user(db, "delete-me@example.com", Role.VIEWER)
+    client = client_for(db)
+    headers = {"Authorization": f"Bearer {create_access_token(admin)}"}
+    try:
+        response = client.delete(f"/api/v1/users/{target.id}/permanent", headers=headers)
+        assert response.status_code == 200
+        assert response.json()["email"] == "delete-me@example.com"
+        assert client.get("/api/v1/users", headers=headers).json()
+    finally:
+        app.dependency_overrides.clear()
