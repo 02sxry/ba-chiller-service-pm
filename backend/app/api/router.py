@@ -414,7 +414,7 @@ def approve_plan_draft_endpoint(
 
 @router.get("/equipment", response_model=list[EquipmentView], tags=["master-data"])
 def list_equipment(db: Db, _: CurrentUser, hospital_id: uuid.UUID | None = None) -> list[Equipment]:
-    query = select(Equipment).order_by(Equipment.equipment_code)
+    query = select(Equipment).where(Equipment.active.is_(True)).order_by(Equipment.equipment_code)
     if hospital_id:
         query = query.where(Equipment.hospital_id == hospital_id)
     return list(db.scalars(query).all())
@@ -475,8 +475,52 @@ def deactivate_equipment(equipment_id: uuid.UUID, db: Db, admin: AdminUser) -> E
     if not equipment:
         raise HTTPException(status_code=404, detail="ไม่พบอุปกรณ์")
     equipment.active = False
+
+    active_plans = db.scalars(
+        select(AnnualPlan).where(AnnualPlan.equipment_id == equipment.id, AnnualPlan.active.is_(True))
+    ).all()
+    for plan in active_plans:
+        plan.active = False
+
+    active_slots = db.scalars(
+        select(PMSlot).where(PMSlot.equipment_id == equipment.id, PMSlot.active.is_(True))
+    ).all()
+    for slot in active_slots:
+        slot.active = False
+
+    open_drafts = db.scalars(
+        select(NextYearPlanDraft).where(
+            NextYearPlanDraft.equipment_id == equipment.id,
+            NextYearPlanDraft.excluded.is_(False),
+        )
+    ).all()
+    for draft in open_drafts:
+        draft.excluded = True
+
+    appointments = db.scalars(
+        select(Appointment).where(
+            Appointment.equipment_id == equipment.id,
+            Appointment.status != AppointmentStatus.CANCELLED,
+        )
+    ).all()
+    for appointment in appointments:
+        appointment.status = AppointmentStatus.CANCELLED
+
     db.flush()
-    record_audit(db, actor=admin, action="EQUIPMENT_DEACTIVATED", entity_type="equipment", entity_id=equipment.id, new_values={"active": False})
+    record_audit(
+        db,
+        actor=admin,
+        action="EQUIPMENT_DEACTIVATED",
+        entity_type="equipment",
+        entity_id=equipment.id,
+        new_values={
+            "active": False,
+            "annual_plans_cancelled": len(active_plans),
+            "pm_slots_cancelled": len(active_slots),
+            "next_year_drafts_excluded": len(open_drafts),
+            "appointments_cancelled": len(appointments),
+        },
+    )
     db.commit()
     db.refresh(equipment)
     return equipment
@@ -587,7 +631,7 @@ def approve_plan_endpoint(request: PlanApproveRequest, db: Db, admin: AdminUser)
 
 @router.get("/slots", response_model=list[SlotView], tags=["planning"])
 def list_slots(db: Db, _: CurrentUser, plan_year: int | None = None) -> list[PMSlot]:
-    query = select(PMSlot).order_by(PMSlot.plan_year, PMSlot.planned_month)
+    query = select(PMSlot).where(PMSlot.active.is_(True)).order_by(PMSlot.plan_year, PMSlot.planned_month)
     if plan_year:
         query = query.where(PMSlot.plan_year == plan_year)
     return list(db.scalars(query).all())
@@ -986,7 +1030,17 @@ def dashboard(db: Db, _: CurrentUser, year: int = Query(default_factory=lambda: 
         unscheduled_slots=max(total_pm_slots - len([item for item in appointments if item.status != AppointmentStatus.CANCELLED]), 0),
         upcoming_appointments=sum(bool(revision and revision.scheduled_date >= today) for revision in current_revisions),
         past_due_unconfirmed=sum(bool(revision and revision.scheduled_date < today and not item.confirmed_revision_id) for item, revision in zip(appointments, current_revisions, strict=True)),
-        unscheduled_backlog=db.scalar(select(func.count()).select_from(PMSlot).outerjoin(Appointment).where(PMSlot.plan_year == year, PMSlot.planned_month < today.month, Appointment.id.is_(None))) or 0,
+        unscheduled_backlog=db.scalar(
+            select(func.count())
+            .select_from(PMSlot)
+            .outerjoin(Appointment)
+            .where(
+                PMSlot.plan_year == year,
+                PMSlot.active.is_(True),
+                PMSlot.planned_month < today.month,
+                Appointment.id.is_(None),
+            )
+        ) or 0,
         cancelled_appointments=sum(item.status == AppointmentStatus.CANCELLED for item in appointments),
         admin_changed_appointments=sum(bool(item.confirmed_revision_id and item.current_revision_id != item.confirmed_revision_id) for item in appointments),
         failed_notifications=db.scalar(select(func.count()).select_from(NotificationJob).where(NotificationJob.status.in_([NotificationStatus.FAILED, NotificationStatus.REVIEW_REQUIRED]))) or 0,
