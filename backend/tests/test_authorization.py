@@ -204,8 +204,8 @@ def test_archived_equipment_with_closed_plan_can_be_deleted_permanently(db) -> N
             json={
                 "hospital_id": str(hospital.id),
                 "equipment_code": "DEL-E1",
-                "equipment_name": "เครื่อง Delete",
-                "model": "Chiller",
+                "equipment_name": "Chiller",
+                "model": "5445435435",
                 "serial_number": "001",
             },
         )
