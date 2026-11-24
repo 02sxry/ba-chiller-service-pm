@@ -91,3 +91,5 @@ Docker build ครั้งแรกใน execution environment ติด prox
 
 การเปลี่ยน Login เป็น User ID/Password ผ่าน frontend build และ Python compile check แล้ว; backend pytest ใน execution environment รอบนี้เชื่อม PostgreSQL test port `55432` ไม่ได้ จึงยังไม่สรุปผล pytest รอบนี้เป็นผ่าน
 
+การสร้าง Google Sheets workbook template รอบล่าสุดผ่าน: สร้างไฟล์ `output/BA_CHILLER_PM_MASTER.xlsx` สำเร็จ ตรวจสอบชื่อชีต 17 ชีตและหัวคอลัมน์ของ Input tabs แล้ว; ยังไม่ได้ทดสอบกับ Google credentials จริง
+

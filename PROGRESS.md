@@ -54,6 +54,7 @@ Operational integration milestone: Google provider adapter และ container b
 - LINE Q&A ใช้ notification outbox เดิม, มี idempotency ต่อ webhook event และไม่ส่งจริงเมื่อ kill switch เปิด
 - เพิ่มคู่มือทดลองบนโน้ตบุ๊กด้วย Docker Desktop ตั้งแต่ clone, สร้าง `.env`, bootstrap Admin, smoke check, test flow และ backup ก่อนย้าย server
 - เปลี่ยน Login เป็น User ID + Password พร้อม username migration และ local Admin เริ่มต้น `admin/admin` โดยยังเก็บ email เดิมไว้เพื่อความเข้ากันได้ของข้อมูลเก่า
+- เพิ่มตัวกรองรอบ PM ตามโรงพยาบาล เครื่อง รุ่น ปี และเดือน พร้อมไฟล์ Google Sheets workbook template ที่มีชีตเริ่มต้นและคำอธิบายภาษาไทย
 
 ## Tests executed
 
@@ -83,6 +84,7 @@ Operational integration milestone: Google provider adapter และ container b
 - Isolated LINE webhook relay template พร้อม path/method/body/rate controls และ Docker DNS re-resolution
 - Webhook relay rehearsal ผ่าน valid/invalid HMAC, deduplication, rate limit, body limit และ backend recreate
 - Frontend Nginx re-resolve backend ผ่าน Docker DNS; HTTPS UI/API ยัง 200 หลัง backend container recreate
+- Google workbook template: สร้างไฟล์ XLSX ได้จริง ตรวจสอบชื่อชีตและหัวคอลัมน์ครบ รวมชีต `เริ่มที่นี่`
 
 ## ข้อจำกัดและงานคงเหลือ
 
@@ -96,7 +98,7 @@ Operational integration milestone: Google provider adapter และ container b
 
 ## Next actions
 
-1. เพิ่ม Google export reconciliation หลายแถวและ conflict resolution UI
+1. เปิดใช้งาน Google Sheets sync สำหรับ Equipment และ PM Plans ต่อจาก Hospitals_Input
 2. เพิ่ม Admin UI สำหรับ approve/reject AI suggestion โดยไม่เขียนทับ parsed source
 3. เพิ่ม browser E2E เมื่อมี browser runtime
 4. ทดสอบ public TLS/tunnel กับ LINE Verify Webhook หลังได้รับ credentials และอนุมัติ network
