@@ -57,7 +57,7 @@ export default function App() {
   const [authenticated, setAuthenticated] = useState(() => Boolean(localStorage.getItem('ba_access_token')))
   if (!authenticated) return <LoginPage onSuccess={() => setAuthenticated(true)} />
   return (
-    <Shell>
+    <Shell onLogout={() => setAuthenticated(false)}>
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/hospitals" element={<HospitalsPage />} />

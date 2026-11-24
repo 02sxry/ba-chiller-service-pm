@@ -2,7 +2,7 @@ import { type ReactNode, useState } from 'react'
 import {
   Activity, Bell, Building2, CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck,
   Database, FileClock, FileSpreadsheet, Gauge, HardDrive, History, Hospital,
-  Menu, Settings, ShieldCheck, Stethoscope, Users, Wrench, X,
+  LogOut, Menu, Settings, ShieldCheck, Stethoscope, Users, Wrench, X,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
@@ -27,7 +27,7 @@ const navigation = [
   ['ตั้งค่า', '/settings', Settings],
 ] as const
 
-export function Shell({ children }: { children: ReactNode }) {
+export function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => void }) {
   const [open, setOpen] = useState(false)
   const [compact, setCompact] = useState(false)
   return (
@@ -55,7 +55,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <header className="topbar">
           <button className="icon-button menu-mobile" onClick={() => setOpen(true)} aria-label="เปิดเมนู"><Menu /></button>
           <div className="environment"><span className="live-dot" /> ระบบพัฒนา · Mock integrations</div>
-          <div className="profile"><span>ผู้ดูแลระบบ</span><div className="avatar">BA</div></div>
+          <div className="profile"><span>ผู้ดูแลระบบ</span><div className="avatar">BA</div><button className="text-button" onClick={() => { localStorage.removeItem('ba_access_token'); onLogout() }} aria-label="ออกจากระบบ"><LogOut size={16} /> ออกจากระบบ</button></div>
         </header>
         <div className="content">{children}</div>
       </main>
