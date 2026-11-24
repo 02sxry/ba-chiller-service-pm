@@ -66,7 +66,16 @@ export function Placeholder({ title }: { title: string }) {
 }
 
 type Hospital = { id: string; hospital_code: string; hospital_name: string; short_name: string | null; active: boolean }
-type Equipment = { id: string; equipment_code: string; hospital_id: string; equipment_name: string; model: string | null; serial_number: string | null; active: boolean }
+type Equipment = { id: string; equipment_code: string; hospital_id: string; equipment_name: string; model: string | null; serial_number: string | null; room_location?: string | null; active: boolean }
+const EQUIPMENT_NAMES = ['Varian', 'C-Rad', 'Chiller', 'VisionRT']
+
+function normalizeEquipmentNumber(form: { equipment_name: string; serial_number: string }) {
+  const serialNumber = form.serial_number.trim()
+  if (!serialNumber) return ''
+  const isChiller = form.equipment_name.toLowerCase() === 'chiller'
+  const baseSerialNumber = serialNumber.replace(/-CH$/i, '')
+  return isChiller ? `${baseSerialNumber}-CH` : baseSerialNumber
+}
 
 export function HospitalsPage() {
   const client = useQueryClient()
@@ -140,13 +149,113 @@ export function EquipmentPage() {
   const client = useQueryClient()
   const hospitals = useQuery({ queryKey: ['hospitals'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
   const equipment = useQuery({ queryKey: ['equipment'], queryFn: () => api<Equipment[]>('/equipment') })
+  const me = useQuery({ queryKey: ['current-user'], queryFn: () => api<{ role: string }>('/auth/me') })
   const [form, setForm] = useState({ hospital_id: '', equipment_name: '', model: '', serial_number: '', room_location: '' })
   const create = useMutation({
-    mutationFn: () => api('/equipment', { method: 'POST', body: JSON.stringify({ ...form, model: form.model || null, serial_number: form.serial_number || null, room_location: form.room_location || null }) }),
+    mutationFn: () => api('/equipment', { method: 'POST', body: JSON.stringify({ ...form, model: form.model || null, serial_number: normalizeEquipmentNumber(form) || null, room_location: form.room_location || null }) }),
     onSuccess: () => { setForm({ hospital_id: '', equipment_name: '', model: '', serial_number: '', room_location: '' }); client.invalidateQueries({ queryKey: ['equipment'] }) },
   })
+  const archive = useMutation({
+    mutationFn: (id: string) => api<Equipment>(`/equipment/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['equipment'] })
+      client.invalidateQueries({ queryKey: ['equipment-archive'] })
+      client.invalidateQueries({ queryKey: ['slots'] })
+      client.invalidateQueries({ queryKey: ['dashboard'] })
+      client.invalidateQueries({ queryKey: ['appointments'] })
+    },
+  })
   const hospitalNames = new Map(hospitals.data?.map((hospital) => [hospital.id, hospital.hospital_name]))
-  return <><section className="page-heading"><div><p className="eyebrow">MASTER DATA</p><h1>ฐานข้อมูลอุปกรณ์</h1><p>ระบบสร้างรหัสภายในให้อัตโนมัติ ผู้ใช้ไม่ต้องกรอกรหัส</p></div></section><section className="workspace-grid"><article className="panel"><div className="panel-header"><h2>รายการอุปกรณ์</h2><span className="count-badge">{equipment.data?.length ?? 0}</span></div><div className="data-list">{equipment.data?.map((item) => <div key={item.id}><p><strong>{item.equipment_name}</strong><small>{hospitalNames.get(item.hospital_id) ?? 'ไม่พบโรงพยาบาล'}{item.model ? ` · ${item.model}` : ''}</small></p><i className={item.active ? 'active-state' : ''}>{item.active ? 'ใช้งาน' : 'ปิด'}</i></div>)}</div></article><form className="panel form-panel" onSubmit={(event) => { event.preventDefault(); create.mutate() }}><div><span className="panel-kicker">ADD EQUIPMENT</span><h2>เพิ่มอุปกรณ์</h2></div><label>โรงพยาบาล<select value={form.hospital_id} onChange={(event) => setForm({ ...form, hospital_id: event.target.value })} required><option value="">เลือกโรงพยาบาล</option>{hospitals.data?.map((hospital) => <option value={hospital.id} key={hospital.id}>{hospital.hospital_name}</option>)}</select></label><label>ชื่ออุปกรณ์<input value={form.equipment_name} onChange={(event) => setForm({ ...form, equipment_name: event.target.value })} required /></label><label>รุ่น<input value={form.model} onChange={(event) => setForm({ ...form, model: event.target.value })} /></label><label>Serial number<input value={form.serial_number} onChange={(event) => setForm({ ...form, serial_number: event.target.value })} /></label>{create.error && <div className="login-error">{create.error.message}</div>}<button className="primary" disabled={create.isPending}>บันทึกอุปกรณ์</button></form></section></>
+  return <>
+    <section className="page-heading"><div><p className="eyebrow">MASTER DATA</p><h1>ฐานข้อมูลอุปกรณ์</h1><p>ระบบสร้างรหัสภายในให้อัตโนมัติ ผู้ใช้ไม่ต้องกรอกรหัส · อุปกรณ์ที่เก็บแล้วจะอยู่ใน Archive และจะปิดแผน PM ที่ยังใช้งานอยู่ตามไปด้วย</p></div></section>
+    <section className="workspace-grid">
+      <article className="panel">
+        <div className="panel-header"><h2>รายการอุปกรณ์</h2><span className="count-badge">{equipment.data?.filter((item) => item.active).length ?? 0}</span></div>
+        <div className="data-list">{equipment.data?.filter((item) => item.active).map((item) => <div key={item.id}><p><strong>{item.equipment_name}</strong><small>{hospitalNames.get(item.hospital_id) ?? 'ไม่พบโรงพยาบาล'}{item.model ? ` · ${item.model}` : ''}</small></p><i className="active-state">ใช้งาน</i>{me.data?.role === 'ADMIN' && <button className="text-button" type="button" onClick={() => window.confirm(`เก็บ ${item.equipment_name} เข้า Archive ใช่หรือไม่`) && archive.mutate(item.id)}>เก็บเข้า Archive</button>}</div>)}</div>
+      </article>
+      <form className="panel form-panel" onSubmit={(event) => { event.preventDefault(); create.mutate() }}>
+        <div><span className="panel-kicker">ADD EQUIPMENT</span><h2>เพิ่มอุปกรณ์</h2></div>
+        <label>โรงพยาบาล<select value={form.hospital_id} onChange={(event) => setForm({ ...form, hospital_id: event.target.value })} required><option value="">เลือกโรงพยาบาล</option>{hospitals.data?.map((hospital) => <option value={hospital.id} key={hospital.id}>{hospital.hospital_name}</option>)}</select></label>
+        <label>ชื่ออุปกรณ์<select value={form.equipment_name} onChange={(event) => setForm({ ...form, equipment_name: event.target.value })} required><option value="">เลือกชื่ออุปกรณ์</option>{EQUIPMENT_NAMES.map((name) => <option value={name} key={name}>{name}</option>)}</select></label>
+        <label>รุ่น<input value={form.model} onChange={(event) => setForm({ ...form, model: event.target.value })} placeholder="ถ้ามีให้กรอก" /></label>
+        <label>เลขเครื่อง<input value={form.serial_number} onChange={(event) => setForm({ ...form, serial_number: event.target.value })} onBlur={() => setForm({ ...form, serial_number: normalizeEquipmentNumber(form) })} required placeholder="เช่น 001" />{form.equipment_name === 'Chiller' && <small>ระบบจะเติม -CH ต่อท้ายอัตโนมัติ</small>}</label>
+        <label>สถานที่ติดตั้ง<input value={form.room_location} onChange={(event) => setForm({ ...form, room_location: event.target.value })} /></label>
+        {(create.error || archive.error) && <div className="login-error">{(create.error || archive.error)?.message}</div>}
+        <button className="primary" disabled={create.isPending}>บันทึกอุปกรณ์</button>
+      </form>
+    </section>
+  </>
+}
+
+export function EquipmentArchivePage() {
+  const client = useQueryClient()
+  const hospitals = useQuery({ queryKey: ['hospitals'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
+  const archived = useQuery({ queryKey: ['equipment-archive'], queryFn: () => api<Equipment[]>('/equipment/archive') })
+  const remove = useMutation({
+    mutationFn: (id: string) => api<Equipment>(`/equipment/${id}/permanent`, { method: 'DELETE' }),
+    onSuccess: () => { client.invalidateQueries({ queryKey: ['equipment-archive'] }); client.invalidateQueries({ queryKey: ['equipment'] }) },
+  })
+  const hospitalNames = new Map(hospitals.data?.map((hospital) => [hospital.id, hospital.hospital_name]))
+  return <>
+    <section className="page-heading"><div><p className="eyebrow">EQUIPMENT ARCHIVE</p><h1>Archive อุปกรณ์</h1><p>อุปกรณ์ที่เก็บจากหน้าฐานข้อมูลอุปกรณ์ การลบถาวรทำได้เฉพาะหน้านี้และเฉพาะ Admin ถ้ามีนัดหมายอยู่ ระบบจะให้เก็บประวัติไว้</p></div></section>
+    <article className="panel">
+      <div className="panel-header"><h2>รายการใน Archive</h2><span className="count-badge">{archived.data?.length ?? 0}</span></div>
+      {remove.error && <div className="login-error">{remove.error.message}</div>}
+      <div className="data-list">{archived.data?.map((item) => <div key={item.id}><p><strong>{item.equipment_name}</strong><small>{item.equipment_code} · {hospitalNames.get(item.hospital_id) ?? 'ไม่พบโรงพยาบาล'}{item.model ? ` · รุ่น ${item.model}` : ''}{item.serial_number ? ` · เลขเครื่อง ${item.serial_number}` : ''}</small></p><i>Archived</i><button className="text-button" type="button" onClick={() => window.confirm(`ลบ ${item.equipment_name} ถาวรใช่หรือไม่\n\nแผน PM ที่ปิดแล้วจะถูกลบด้วย และการลบนี้ย้อนกลับไม่ได้`) && remove.mutate(item.id)}>ลบถาวร</button></div>)}{archived.data?.length === 0 && <div className="empty-state">ยังไม่มีอุปกรณ์ใน Archive</div>}</div>
+    </article>
+  </>
+}
+
+export function DatabaseEntryPage() {
+  const client = useQueryClient()
+  const hospitals = useQuery({ queryKey: ['hospitals'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
+  const equipment = useQuery({ queryKey: ['equipment'], queryFn: () => api<Equipment[]>('/equipment') })
+  const [hospitalForm, setHospitalForm] = useState({ hospital_name: '', short_name: '' })
+  const [equipmentForm, setEquipmentForm] = useState({ hospital_id: '', equipment_name: '', model: '', serial_number: '', room_location: '' })
+  const [planForm, setPlanForm] = useState({ equipment_id: '', year: currentYear + 1, frequency: 4, start_month: 1 })
+  const [planPreview, setPlanPreview] = useState<string[]>([])
+  const [editingHospital, setEditingHospital] = useState<Hospital | null>(null)
+  const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null)
+  const createHospital = useMutation({
+    mutationFn: () => api<Hospital>('/hospitals', { method: 'POST', body: JSON.stringify(hospitalForm) }),
+    onSuccess: () => { setHospitalForm({ hospital_name: '', short_name: '' }); client.invalidateQueries({ queryKey: ['hospitals'] }) },
+  })
+  const updateHospital = useMutation({
+    mutationFn: () => api<Hospital>(`/hospitals/${editingHospital?.id}`, { method: 'PATCH', body: JSON.stringify(hospitalForm) }),
+    onSuccess: () => { setEditingHospital(null); setHospitalForm({ hospital_name: '', short_name: '' }); client.invalidateQueries({ queryKey: ['hospitals'] }) },
+  })
+  const deactivateHospital = useMutation({
+    mutationFn: (id: string) => api<Hospital>(`/hospitals/${id}`, { method: 'DELETE' }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['hospitals'] }),
+  })
+  const createEquipment = useMutation({
+    mutationFn: () => api<Equipment>('/equipment', { method: 'POST', body: JSON.stringify({ ...equipmentForm, model: equipmentForm.model || null, serial_number: normalizeEquipmentNumber(equipmentForm) || null, room_location: equipmentForm.room_location || null }) }),
+    onSuccess: () => { setEquipmentForm({ hospital_id: '', equipment_name: '', model: '', serial_number: '', room_location: '' }); client.invalidateQueries({ queryKey: ['equipment'] }) },
+  })
+  const updateEquipment = useMutation({
+    mutationFn: () => api<Equipment>(`/equipment/${editingEquipment?.id}`, { method: 'PATCH', body: JSON.stringify({ ...equipmentForm, model: equipmentForm.model || null, serial_number: normalizeEquipmentNumber(equipmentForm) || null, room_location: equipmentForm.room_location || null }) }),
+    onSuccess: () => { setEditingEquipment(null); setEquipmentForm({ hospital_id: '', equipment_name: '', model: '', serial_number: '', room_location: '' }); client.invalidateQueries({ queryKey: ['equipment'] }) },
+  })
+  const deactivateEquipment = useMutation({
+    mutationFn: (id: string) => api<Equipment>(`/equipment/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['equipment'] })
+      client.invalidateQueries({ queryKey: ['equipment-archive'] })
+      client.invalidateQueries({ queryKey: ['slots'] })
+      client.invalidateQueries({ queryKey: ['dashboard'] })
+      client.invalidateQueries({ queryKey: ['appointments'] })
+    },
+  })
+  const previewPlan = useMutation({
+    mutationFn: () => api<{ display_months_th: string[] }>('/plans/preview', { method: 'POST', body: JSON.stringify({ plan_year: planForm.year, annual_frequency: planForm.frequency, planning_mode: 'AUTOMATIC', start_month: planForm.start_month }) }),
+    onSuccess: (data) => setPlanPreview(data.display_months_th),
+  })
+  const createPlan = useMutation({
+    mutationFn: () => api('/plans/approve', { method: 'POST', body: JSON.stringify({ equipment_id: planForm.equipment_id, plan_year: planForm.year, annual_frequency: planForm.frequency, planning_mode: 'AUTOMATIC', start_month: planForm.start_month }) }),
+    onSuccess: () => { setPlanPreview([]); client.invalidateQueries({ queryKey: ['slots'] }); client.invalidateQueries({ queryKey: ['dashboard'] }) },
+  })
+  const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+  return <><section className="page-heading"><div><p className="eyebrow">DATABASE ENTRY</p><h1>กรอกข้อมูลฐานข้อมูล</h1><p>หน้า Admin สำหรับเพิ่ม แก้ไข และปิดใช้งานข้อมูลหลัก ข้อมูลจะบันทึกเข้า PostgreSQL</p></div></section><section className="workspace-grid"><form className="panel form-panel" onSubmit={(event) => { event.preventDefault(); editingHospital ? updateHospital.mutate() : createHospital.mutate() }}><div><span className="panel-kicker">STEP 1</span><h2>{editingHospital ? 'แก้ไขโรงพยาบาล' : 'เพิ่มโรงพยาบาล'}</h2></div><label>ชื่อโรงพยาบาล<input value={hospitalForm.hospital_name} onChange={(event) => setHospitalForm({ ...hospitalForm, hospital_name: event.target.value })} required /></label><label>ชื่อย่อ<input value={hospitalForm.short_name} onChange={(event) => setHospitalForm({ ...hospitalForm, short_name: event.target.value })} /></label>{(createHospital.error || updateHospital.error) && <div className="login-error">{(createHospital.error || updateHospital.error)?.message}</div>}<button className="primary" disabled={createHospital.isPending || updateHospital.isPending}>{editingHospital ? 'บันทึกการแก้ไข' : 'บันทึกโรงพยาบาล'}</button>{editingHospital && <button className="secondary" type="button" onClick={() => { setEditingHospital(null); setHospitalForm({ hospital_name: '', short_name: '' }) }}>ยกเลิกการแก้ไข</button>}</form><form className="panel form-panel" onSubmit={(event) => { event.preventDefault(); editingEquipment ? updateEquipment.mutate() : createEquipment.mutate() }}><div><span className="panel-kicker">STEP 2</span><h2>{editingEquipment ? 'แก้ไขอุปกรณ์' : 'เพิ่มอุปกรณ์'}</h2></div><label>โรงพยาบาล<select value={equipmentForm.hospital_id} onChange={(event) => setEquipmentForm({ ...equipmentForm, hospital_id: event.target.value })} required><option value="">เลือกโรงพยาบาล</option>{hospitals.data?.map((hospital) => <option value={hospital.id} key={hospital.id}>{hospital.hospital_name}</option>)}</select></label><label>ชื่ออุปกรณ์<select value={equipmentForm.equipment_name} onChange={(event) => setEquipmentForm({ ...equipmentForm, equipment_name: event.target.value })} required><option value="">เลือกชื่ออุปกรณ์</option>{EQUIPMENT_NAMES.map((name) => <option value={name} key={name}>{name}</option>)}</select></label><label>รุ่น<input value={equipmentForm.model} onChange={(event) => setEquipmentForm({ ...equipmentForm, model: event.target.value })} placeholder="ถ้ามีให้กรอก" /></label><label>เลขเครื่อง<input value={equipmentForm.serial_number} onChange={(event) => setEquipmentForm({ ...equipmentForm, serial_number: event.target.value })} onBlur={() => setEquipmentForm({ ...equipmentForm, serial_number: normalizeEquipmentNumber(equipmentForm) })} required placeholder="เช่น 001" />{equipmentForm.equipment_name === 'Chiller' && <small>ระบบจะเติม -CH ต่อท้ายอัตโนมัติ</small>}</label><label>สถานที่ติดตั้ง<input value={equipmentForm.room_location} onChange={(event) => setEquipmentForm({ ...equipmentForm, room_location: event.target.value })} /></label>{(createEquipment.error || updateEquipment.error) && <div className="login-error">{(createEquipment.error || updateEquipment.error)?.message}</div>}<button className="primary" disabled={createEquipment.isPending || updateEquipment.isPending}>{editingEquipment ? 'บันทึกการแก้ไข' : 'บันทึกอุปกรณ์'}</button>{editingEquipment && <button className="secondary" type="button" onClick={() => { setEditingEquipment(null); setEquipmentForm({ hospital_id: '', equipment_name: '', model: '', serial_number: '', room_location: '' }) }}>ยกเลิกการแก้ไข</button>}</form><form className="panel form-panel" onSubmit={(event) => { event.preventDefault(); previewPlan.mutate() }}><div><span className="panel-kicker">STEP 3</span><h2>สร้างแผน PM</h2></div><label>อุปกรณ์<select value={planForm.equipment_id} onChange={(event) => setPlanForm({ ...planForm, equipment_id: event.target.value })} required><option value="">เลือกอุปกรณ์</option>{equipment.data?.filter((item) => item.active).map((item) => <option value={item.id} key={item.id}>{item.equipment_name}{item.model ? ` · ${item.model}` : ''}</option>)}</select></label><label>ปีแผน (พ.ศ.)<input type="number" value={planForm.year + 543} onChange={(event) => setPlanForm({ ...planForm, year: Number(event.target.value) - 543 })} required /></label><label>จำนวนครั้งต่อปี<select value={planForm.frequency} onChange={(event) => setPlanForm({ ...planForm, frequency: Number(event.target.value) })}>{[1, 2, 3, 4, 6, 12].map((value) => <option key={value} value={value}>{value} ครั้ง</option>)}</select></label><label>เดือนเริ่มต้น<select value={planForm.start_month} onChange={(event) => setPlanForm({ ...planForm, start_month: Number(event.target.value) })}>{months.map((month, index) => <option value={index + 1} key={month}>{month}</option>)}</select></label><button className="secondary" type="submit" disabled={previewPlan.isPending}>คำนวณแผน</button>{planPreview.length > 0 && <><div className="month-grid">{planPreview.map((month) => <span key={month}>{month}</span>)}</div><button className="primary" type="button" disabled={createPlan.isPending} onClick={() => createPlan.mutate()}>ยืนยันและสร้างรอบ PM</button></>}{createPlan.error && <div className="login-error">{createPlan.error.message}</div>}{createPlan.isSuccess && <div className="success-note">สร้างแผน PM และรอบ PM แล้ว</div>}</form></section><section className="workspace-grid"><article className="panel"><div className="panel-header"><h2>โรงพยาบาลที่มีอยู่</h2><span className="count-badge">{hospitals.data?.length ?? 0}</span></div><div className="data-list">{hospitals.data?.map((hospital) => <div key={hospital.id}><p><strong>{hospital.hospital_name}</strong><small>{hospital.short_name || 'ไม่มีชื่อย่อ'}</small></p><button className="text-button" type="button" onClick={() => { setEditingHospital(hospital); setHospitalForm({ hospital_name: hospital.hospital_name, short_name: hospital.short_name || '' }) }}>แก้ไข</button><button className="text-button" type="button" onClick={() => window.confirm(`ปิดใช้งาน ${hospital.hospital_name} ใช่หรือไม่`) && deactivateHospital.mutate(hospital.id)}>ปิดใช้งาน</button></div>)}</div></article><article className="panel"><div className="panel-header"><h2>อุปกรณ์ที่มีอยู่</h2><span className="count-badge">{equipment.data?.filter((item) => item.active).length ?? 0}</span></div><div className="data-list">{equipment.data?.filter((item) => item.active).map((item) => <div key={item.id}><p><strong>{item.equipment_name}</strong><small>{hospitals.data?.find((hospital) => hospital.id === item.hospital_id)?.hospital_name || 'ไม่พบโรงพยาบาล'}{item.model ? ` · รุ่น ${item.model}` : ''}</small></p><button className="text-button" type="button" onClick={() => { setEditingEquipment(item); setEquipmentForm({ hospital_id: item.hospital_id, equipment_name: item.equipment_name, model: item.model || '', serial_number: item.serial_number || '', room_location: item.room_location || '' }) }}>แก้ไข</button><button className="text-button" type="button" onClick={() => window.confirm(`ปิดใช้งาน ${item.equipment_name} ใช่หรือไม่`) && deactivateEquipment.mutate(item.id)}>ปิดใช้งาน</button></div>)}</div></article></section></>
 }
 
 type Slot = { id: string; equipment_id: string; yearly_plan_id: string; plan_year: number; planned_month: number; active: boolean }
@@ -157,13 +266,23 @@ export function SlotsPage() {
   const hospitals = useQuery({ queryKey: ['hospitals'], queryFn: () => api<Hospital[]>('/hospitals') })
   const [equipmentId, setEquipmentId] = useState('')
   const [hospitalId, setHospitalId] = useState('')
+  const [model, setModel] = useState('')
+  const [year, setYear] = useState('')
+  const [month, setMonth] = useState('')
+  const monthNames = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
   const equipmentById = new Map(equipment.data?.map((item) => [item.id, item]))
   const hospitalById = new Map(hospitals.data?.map((item) => [item.id, item]))
+  const years = [...new Set(slots.data?.map((slot) => slot.plan_year) ?? [])].sort((a, b) => a - b)
   const visible = slots.data?.filter((slot) => {
     const item = equipmentById.get(slot.equipment_id)
-    return (!equipmentId || slot.equipment_id === equipmentId) && (!hospitalId || item?.hospital_id === hospitalId)
+    return (!equipmentId || slot.equipment_id === equipmentId) &&
+      (!hospitalId || item?.hospital_id === hospitalId) &&
+      (!model || item?.model === model) &&
+      (!year || slot.plan_year === Number(year)) &&
+      (!month || slot.planned_month === Number(month))
   }) ?? []
-  return <><section className="page-heading"><div><p className="eyebrow">PM SLOTS</p><h1>รอบ PM</h1><p>รอบที่สร้างจาก PM Plan และเชื่อมต่อกับอุปกรณ์จริง</p></div></section><section className="panel"><div className="heading-actions"><label>โรงพยาบาล<select value={hospitalId} onChange={(event) => setHospitalId(event.target.value)}><option value="">ทั้งหมด</option>{hospitals.data?.map((item) => <option value={item.id} key={item.id}>{item.hospital_name}</option>)}</select></label><label>เครื่อง<select value={equipmentId} onChange={(event) => setEquipmentId(event.target.value)}><option value="">ทั้งหมด</option>{equipment.data?.filter((item) => !hospitalId || item.hospital_id === hospitalId).map((item) => <option value={item.id} key={item.id}>{item.equipment_name}</option>)}</select></label></div><div className="data-list">{visible.map((slot) => { const item = equipmentById.get(slot.equipment_id); return <div key={slot.id}><p><strong>{item?.equipment_name ?? 'ไม่พบอุปกรณ์'}</strong><small>{item ? hospitalById.get(item.hospital_id)?.hospital_name : ''} · ปี {slot.plan_year + 543} · เดือน {slot.planned_month}</small></p><i className="active-state">สร้างแล้ว</i></div> })}{visible.length === 0 && <div className="empty-state">ยังไม่มี PM Slot ตามตัวกรอง</div>}</div></section></>
+  const models = [...new Set(equipment.data?.filter((item) => !hospitalId || item.hospital_id === hospitalId).map((item) => item.model).filter((item): item is string => Boolean(item)) ?? [])].sort()
+  return <><section className="page-heading"><div><p className="eyebrow">PM SLOTS</p><h1>รอบ PM</h1><p>รอบที่สร้างจาก PM Plan และเชื่อมต่อกับอุปกรณ์จริง</p></div></section><section className="panel"><div className="heading-actions filter-row"><label>โรงพยาบาล<select value={hospitalId} onChange={(event) => setHospitalId(event.target.value)}><option value="">ทั้งหมด</option>{hospitals.data?.map((item) => <option value={item.id} key={item.id}>{item.hospital_name}</option>)}</select></label><label>เครื่อง<select value={equipmentId} onChange={(event) => setEquipmentId(event.target.value)}><option value="">ทั้งหมด</option>{equipment.data?.filter((item) => !hospitalId || item.hospital_id === hospitalId).map((item) => <option value={item.id} key={item.id}>{item.equipment_name}</option>)}</select></label><label>รุ่น<select value={model} onChange={(event) => setModel(event.target.value)}><option value="">ทั้งหมด</option>{models.map((item) => <option value={item} key={item}>{item}</option>)}</select></label><label>ปี<select value={year} onChange={(event) => setYear(event.target.value)}><option value="">ทั้งหมด</option>{years.map((item) => <option value={item} key={item}>{item + 543}</option>)}</select></label><label>เดือน<select value={month} onChange={(event) => setMonth(event.target.value)}><option value="">ทั้งหมด</option>{monthNames.map((item, index) => <option value={index + 1} key={item}>{item}</option>)}</select></label></div><div className="data-list">{visible.map((slot) => { const item = equipmentById.get(slot.equipment_id); return <div key={slot.id}><p><strong>{item?.equipment_name ?? 'ไม่พบอุปกรณ์'}</strong><small>{item ? `${hospitalById.get(item.hospital_id)?.hospital_name ?? ''}${item.model ? ` · รุ่น ${item.model}` : ''}` : ''} · ปี {slot.plan_year + 543} · เดือน {slot.planned_month}</small></p><i className="active-state">สร้างแล้ว</i></div> })}{visible.length === 0 && <div className="empty-state">ยังไม่มี PM Slot ตามตัวกรอง</div>}</div></section></>
 }
 
 type AppointmentSummary = { id: string; reference: string; hospital_id: string; equipment_id: string; hospital_name: string; equipment_name: string; plan_year: number; planned_month: number; scheduled_date: string; status: string; revision_number: number; confirmed_date: string | null; admin_changed_after_confirmation: boolean; notification_warning: boolean }
@@ -193,12 +312,7 @@ export function GoogleSyncPage() {
     mutationFn: ({ id, kind }: { id: string; kind: 'run' | 'retry' }) => api<SyncEvent>(`/google-sync/events/${id}/${kind}`, { method: 'POST' }),
     onSuccess: () => client.invalidateQueries({ queryKey: ['sync-events'] }),
   })
-  const [form, setForm] = useState({ row_key: '', hospital_code: '', hospital_name: '', short_name: '' })
-  const submit = useMutation({
-    mutationFn: () => api('/google-sync/hospitals', { method: 'POST', body: JSON.stringify({ ...form, operation: 'CREATE', record_id: null, expected_version: null }) }),
-    onSuccess: () => { setForm({ row_key: '', hospital_code: '', hospital_name: '', short_name: '' }); client.invalidateQueries({ queryKey: ['sync-events'] }); client.invalidateQueries({ queryKey: ['hospitals'] }) },
-  })
-  return <><section className="page-heading"><div><p className="eyebrow">GOOGLE WORKSPACE</p><h1>Google Sheets Sync</h1><p>Spreadsheet ส่ง proposed changes ผ่าน validation และ expected version ก่อน commit</p></div></section><section className="workspace-grid"><article className="panel"><div className="panel-header"><h2>Sync events</h2><span className="count-badge">{query.data?.length ?? 0}</span></div><div className="data-list">{query.data?.map((event) => <div key={event.id}><span className="code-chip">{event.direction}</span><p><strong>{event.entity_type}</strong><small>{event.last_error || `พยายาม ${event.attempts} ครั้ง`}</small></p><i className={event.status === 'APPLIED' ? 'active-state' : ''}>{event.status}</i>{event.direction === 'OUTBOUND' && event.status === 'PENDING' && <button className="text-button" onClick={() => action.mutate({ id: event.id, kind: 'run' })} disabled={action.isPending}>ส่งตอนนี้</button>}{event.direction === 'OUTBOUND' && ['FAILED', 'CONFLICT'].includes(event.status) && <button className="text-button" onClick={() => action.mutate({ id: event.id, kind: 'retry' })} disabled={action.isPending}>ลองใหม่</button>}</div>)}</div></article><form className="panel form-panel" onSubmit={(event) => { event.preventDefault(); submit.mutate() }}><div><span className="panel-kicker">STAGED INPUT SIMULATION</span><h2>จำลอง Hospitals_Input</h2></div><label>Stable row key<input value={form.row_key} onChange={(event) => setForm({ ...form, row_key: event.target.value })} required /></label><label>รหัสโรงพยาบาล<input value={form.hospital_code} onChange={(event) => setForm({ ...form, hospital_code: event.target.value })} required /></label><label>ชื่อโรงพยาบาล<input value={form.hospital_name} onChange={(event) => setForm({ ...form, hospital_name: event.target.value })} required /></label><label>ชื่อย่อ<input value={form.short_name} onChange={(event) => setForm({ ...form, short_name: event.target.value })} /></label>{submit.error && <div className="login-error">{submit.error.message}</div>}<button className="primary" disabled={submit.isPending}>ตรวจสอบและนำเข้า</button></form></section></>
+  return <><section className="page-heading"><div><p className="eyebrow">GOOGLE WORKSPACE</p><h1>Google Sheets Sync</h1><p>กรอกและแก้ไขข้อมูลผ่าน Dashboard แล้วระบบส่งข้อมูลไป Google Sheets เป็นรายงาน</p></div></section><section className="workspace-grid"><article className="panel"><div className="panel-header"><h2>Sync events</h2><span className="count-badge">{query.data?.length ?? 0}</span></div><div className="data-list">{query.data?.map((event) => <div key={event.id}><span className="code-chip">{event.direction}</span><p><strong>{event.entity_type}</strong><small>{event.last_error || `พยายาม ${event.attempts} ครั้ง`}</small></p><i className={event.status === 'APPLIED' ? 'active-state' : ''}>{event.status}</i>{event.direction === 'OUTBOUND' && event.status === 'PENDING' && <button className="text-button" onClick={() => action.mutate({ id: event.id, kind: 'run' })} disabled={action.isPending}>ส่งตอนนี้</button>}{event.direction === 'OUTBOUND' && ['FAILED', 'CONFLICT'].includes(event.status) && <button className="text-button" onClick={() => action.mutate({ id: event.id, kind: 'retry' })} disabled={action.isPending}>ลองใหม่</button>}</div>)}</div></article><article className="panel form-panel"><span className="panel-kicker">DASHBOARD FIRST</span><h2>การกรอกข้อมูล</h2><p>ไม่ต้องกรอกข้อมูลซ้ำใน Google Sheets ให้สร้างหรือแก้ไขโรงพยาบาล อุปกรณ์ และแผน PM จากเมนูใน Dashboard แล้วระบบจะส่งข้อมูลไปยังชีต View ตามรอบ sync</p><p>ชีต Input ใช้เป็นพื้นที่รับข้อมูลของระบบเท่านั้น ผู้ใช้ไม่ควรแก้ไขโดยตรง</p></article></section></>
 }
 
 type LineGroup = { id: string; line_group_id: string; group_type: string; hospital_id: string | null; active: boolean }
@@ -234,12 +348,27 @@ type UserRecord = { id: string; username: string | null; display_name: string; r
 export function UsersPage() {
   const client = useQueryClient()
   const users = useQuery({ queryKey: ['users'], queryFn: () => api<UserRecord[]>('/users') })
+  const me = useQuery({ queryKey: ['current-user'], queryFn: () => api<UserRecord>('/auth/me') })
   const [form, setForm] = useState({ username: '', display_name: '', password: '', role: 'VIEWER' })
+  const [editingUser, setEditingUser] = useState<UserRecord | null>(null)
   const create = useMutation({
     mutationFn: () => api<UserRecord>('/users', { method: 'POST', body: JSON.stringify(form) }),
     onSuccess: () => { setForm({ username: '', display_name: '', password: '', role: 'VIEWER' }); client.invalidateQueries({ queryKey: ['users'] }) },
   })
-  return <><section className="page-heading"><div><p className="eyebrow">ACCESS CONTROL</p><h1>ผู้ใช้งานและสิทธิ์</h1><p>Admin สร้าง User ID และกำหนดสิทธิ์การใช้งานได้จากหน้านี้</p></div></section><section className="workspace-grid"><article className="panel"><div className="panel-header"><h2>ผู้ใช้งาน</h2><span className="count-badge">{users.data?.length ?? 0}</span></div><div className="data-list">{users.data?.map((user) => <div key={user.id}><p><strong>{user.username}</strong><small>{user.display_name}</small></p><i className="active-state">{user.role === 'ADMIN' ? 'Admin' : 'Viewer'}</i></div>)}</div></article><form className="panel form-panel" onSubmit={(event) => { event.preventDefault(); create.mutate() }}><h2>สร้างผู้ใช้ใหม่</h2><label>User ID<input value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} required /></label><label>ชื่อที่แสดง<input value={form.display_name} onChange={(event) => setForm({ ...form, display_name: event.target.value })} required /></label><label>รหัสผ่าน (อย่างน้อย 12 ตัวอักษร)<input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} minLength={12} required /></label><label>สิทธิ์<select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}><option value="VIEWER">Viewer — ดูข้อมูล</option><option value="ADMIN">Admin — จัดการระบบ</option></select></label>{create.error && <div className="login-error">{create.error.message}</div>}<button className="primary" disabled={create.isPending}>สร้างผู้ใช้</button></form></section></>
+  const update = useMutation({
+    mutationFn: () => api<UserRecord>(`/users/${editingUser?.id}`, { method: 'PATCH', body: JSON.stringify({ display_name: form.display_name, role: form.role, ...(form.password ? { password: form.password } : {}) }) }),
+    onSuccess: () => { setEditingUser(null); setForm({ username: '', display_name: '', password: '', role: 'VIEWER' }); client.invalidateQueries({ queryKey: ['users'] }); client.invalidateQueries({ queryKey: ['current-user'] }) },
+  })
+  const deactivate = useMutation({
+    mutationFn: (id: string) => api<UserRecord>(`/users/${id}`, { method: 'DELETE' }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['users'] }),
+  })
+  const removePermanently = useMutation({
+    mutationFn: (id: string) => api<UserRecord>(`/users/${id}/permanent`, { method: 'DELETE' }),
+    onSuccess: () => { resetForm(); client.invalidateQueries({ queryKey: ['users'] }) },
+  })
+  const resetForm = () => { setEditingUser(null); setForm({ username: '', display_name: '', password: '', role: 'VIEWER' }) }
+  return <><section className="page-heading"><div><p className="eyebrow">ACCESS CONTROL</p><h1>ผู้ใช้งานและสิทธิ์</h1><p>เฉพาะ Admin เท่านั้นที่สร้าง แก้ไขสิทธิ์ ปิดใช้งาน และลบบัญชีผู้ใช้ได้</p></div></section><section className="workspace-grid"><article className="panel"><div className="panel-header"><h2>ผู้ใช้งาน</h2><span className="count-badge">{users.data?.length ?? 0}</span></div><div className="data-list">{users.data?.map((user) => <div key={user.id}><p><strong>{user.username}</strong><small>{user.display_name}</small></p><i className={user.active ? 'active-state' : ''}>{user.active ? (user.role === 'ADMIN' ? 'Admin' : 'Viewer') : 'ปิดใช้งาน'}</i><button className="text-button" type="button" onClick={() => { setEditingUser(user); setForm({ username: user.username || '', display_name: user.display_name, password: '', role: user.role }) }}>แก้ไข</button>{user.id !== me.data?.id && user.active && <button className="text-button" type="button" onClick={() => window.confirm(`ปิดใช้งาน User ${user.username} ใช่หรือไม่`) && deactivate.mutate(user.id)}>ปิดใช้งาน</button>}{user.id !== me.data?.id && <button className="text-button" type="button" onClick={() => window.confirm(`ลบบัญชี User ${user.username} ถาวรใช่หรือไม่\n\nการลบนี้ย้อนกลับไม่ได้`) && removePermanently.mutate(user.id)}>ลบถาวร</button>}</div>)}</div></article><form className="panel form-panel" onSubmit={(event) => { event.preventDefault(); editingUser ? update.mutate() : create.mutate() }}><h2>{editingUser ? 'แก้ไขผู้ใช้งาน' : 'สร้างผู้ใช้ใหม่'}</h2><label>User ID<input value={form.username} disabled={Boolean(editingUser)} onChange={(event) => setForm({ ...form, username: event.target.value })} required /></label><label>ชื่อที่แสดง<input value={form.display_name} onChange={(event) => setForm({ ...form, display_name: event.target.value })} required /></label><label>รหัสผ่าน {editingUser ? '(เว้นว่างได้ถ้าไม่เปลี่ยน)' : '(อย่างน้อย 4 ตัวอักษร)'}<input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} minLength={editingUser ? undefined : 4} required={!editingUser} /></label><label>สิทธิ์<select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}><option value="VIEWER">Viewer — ดูข้อมูล</option><option value="ADMIN">Admin — จัดการระบบ</option></select></label>{(create.error || update.error || removePermanently.error) && <div className="login-error">{(create.error || update.error || removePermanently.error)?.message}</div>}<button className="primary" disabled={create.isPending || update.isPending}>{editingUser ? 'บันทึกการแก้ไข' : 'สร้างผู้ใช้'}</button>{editingUser && <button className="secondary" type="button" onClick={resetForm}>ยกเลิก</button>}</form></section></>
 }
 
 type Draft = { id: string; draft_type: string; status: string; original_text: string; suggestions: { label: string; score: number }[] }

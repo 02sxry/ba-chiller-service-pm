@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.db import lock_query
 from app.domain.enums import AppointmentStatus, ChangeSource, NotificationStatus
 from app.domain.models import (
     ActionToken,
@@ -66,7 +67,7 @@ def _queue_notification(
 
 
 def approve_appointment(db: Session, request: AppointmentApproveRequest, admin: User) -> tuple[Appointment, str]:
-    slot = db.scalar(select(PMSlot).where(PMSlot.id == request.pm_slot_id).with_for_update())
+    slot = db.scalar(lock_query(select(PMSlot).where(PMSlot.id == request.pm_slot_id), PMSlot, db))
     if not slot or not slot.active:
         raise AppointmentError("ไม่พบ PM Slot ที่ใช้งานอยู่")
     if slot.version != request.expected_slot_version:
@@ -140,7 +141,7 @@ def _validate_action_token(
     allowed_actions: set[str],
 ) -> tuple[ActionToken, Appointment, AppointmentRevision]:
     action_token = db.scalar(
-        select(ActionToken).where(ActionToken.token_hash == _hash_token(token)).with_for_update()
+        lock_query(select(ActionToken).where(ActionToken.token_hash == _hash_token(token)), ActionToken, db)
     )
     if not action_token or action_token.used_at or action_token.expires_at <= datetime.now(UTC):
         raise AppointmentError("ลิงก์ตอบรับไม่ถูกต้อง หมดอายุ หรือถูกใช้แล้ว")
@@ -216,7 +217,7 @@ def request_reschedule(
 def technician_date_change(
     db: Session, appointment_id: uuid.UUID, request: DateChangeRequest, admin: User
 ) -> AppointmentRevision:
-    appointment = db.scalar(select(Appointment).where(Appointment.id == appointment_id).with_for_update())
+    appointment = db.scalar(lock_query(select(Appointment).where(Appointment.id == appointment_id), Appointment, db))
     if not appointment:
         raise AppointmentError("ไม่พบนัดหมาย")
     if appointment.version != request.expected_appointment_version:

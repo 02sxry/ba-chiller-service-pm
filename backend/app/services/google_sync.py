@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.db import lock_query
 from app.domain.enums import SyncStatus
 from app.domain.models import Hospital, SyncEvent, User
 from app.integrations.google import GoogleWorkspaceProvider
@@ -101,7 +102,7 @@ def process_hospital_submission(
                 record_id = uuid.UUID(str(row.get("record_id")))
             except ValueError as exc:
                 raise SyncError("record_id ไม่ถูกต้อง") from exc
-            hospital = db.scalar(select(Hospital).where(Hospital.id == record_id).with_for_update())
+            hospital = db.scalar(lock_query(select(Hospital).where(Hospital.id == record_id), Hospital, db))
             if not hospital:
                 raise SyncError("ไม่พบ hospital record")
             expected_version = row.get("expected_version")

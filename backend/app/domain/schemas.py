@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.domain.enums import AppointmentStatus, ChangeSource, DraftStatus, DraftType, PlanningMode, Role, SyncStatus
 
@@ -19,8 +19,14 @@ class LoginRequest(BaseModel):
 class UserCreateRequest(BaseModel):
     username: str = Field(min_length=1, max_length=100)
     display_name: str = Field(min_length=1, max_length=255)
-    password: str = Field(min_length=12, max_length=255)
+    password: str = Field(min_length=4, max_length=255)
     role: Role = Role.VIEWER
+
+
+class UserUpdateRequest(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=255)
+    password: str | None = Field(default=None, min_length=4, max_length=255)
+    role: Role | None = None
 
 
 class TokenResponse(BaseModel):
@@ -31,7 +37,10 @@ class TokenResponse(BaseModel):
 class UserView(ORMModel):
     id: uuid.UUID
     username: str | None
-    email: EmailStr
+    # Email remains in the response for backwards compatibility. It is not the
+    # login identifier, and older local records may contain an internal address
+    # such as @local.invalid that EmailStr rejects on response serialization.
+    email: str
     display_name: str
     role: Role
     active: bool
@@ -40,6 +49,12 @@ class UserView(ORMModel):
 class HospitalCreate(BaseModel):
     hospital_code: str | None = Field(default=None, min_length=1, max_length=50)
     hospital_name: str = Field(min_length=1, max_length=255)
+    short_name: str | None = Field(default=None, max_length=120)
+    notes: str | None = None
+
+
+class HospitalUpdate(BaseModel):
+    hospital_name: str | None = Field(default=None, min_length=1, max_length=255)
     short_name: str | None = Field(default=None, max_length=120)
     notes: str | None = None
 
@@ -58,6 +73,15 @@ class EquipmentCreate(BaseModel):
     manufacturer_id: uuid.UUID | None = None
     equipment_type_id: uuid.UUID | None = None
     equipment_name: str = Field(min_length=1, max_length=255)
+    model: str | None = None
+    serial_number: str | None = None
+    room_location: str | None = None
+    notes: str | None = None
+
+
+class EquipmentUpdate(BaseModel):
+    hospital_id: uuid.UUID | None = None
+    equipment_name: str | None = Field(default=None, min_length=1, max_length=255)
     model: str | None = None
     serial_number: str | None = None
     room_location: str | None = None

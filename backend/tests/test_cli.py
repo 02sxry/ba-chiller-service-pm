@@ -26,8 +26,8 @@ def test_create_admin_rejects_short_password_and_duplicate_email(db) -> None:
             display_name="Admin",
             password="long-secure-password",
         )
-    with pytest.raises(ValueError, match="12"):
-        create_admin(db, email="admin@example.com", display_name="Admin", password="short")
+    with pytest.raises(ValueError, match="4"):
+        create_admin(db, email="admin@example.com", display_name="Admin", password="123")
     create_admin(
         db,
         email="admin@example.com",

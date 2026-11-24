@@ -5,7 +5,7 @@ import structlog
 from sqlalchemy import select
 
 from app.core.config import get_settings
-from app.core.db import SessionLocal
+from app.core.db import SessionLocal, lock_query
 from app.domain.enums import NotificationStatus
 from app.domain.models import NotificationJob
 from app.integrations.line import build_flex_message, build_line_provider, build_text_message
@@ -18,12 +18,10 @@ def process_once() -> int:
     provider = build_line_provider(settings)
     processed = 0
     with SessionLocal.begin() as db:
-        jobs = db.scalars(
-            select(NotificationJob)
-            .where(NotificationJob.status == NotificationStatus.PENDING, NotificationJob.available_at <= datetime.now(UTC))
-            .with_for_update(skip_locked=True)
-            .limit(20)
-        ).all()
+        jobs_query = select(NotificationJob).where(
+            NotificationJob.status == NotificationStatus.PENDING, NotificationJob.available_at <= datetime.now(UTC)
+        )
+        jobs = db.scalars(lock_query(jobs_query, NotificationJob, db, skip_locked=True).limit(20)).all()
         for job in jobs:
             job.status = NotificationStatus.SENDING
             job.attempts += 1

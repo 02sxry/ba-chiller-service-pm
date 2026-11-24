@@ -9,6 +9,9 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
+from app.core.db import Base
+from app.domain import models  # noqa: F401
+
 
 revision: str = '1b6004596e27'
 down_revision: Union[str, None] = None
@@ -432,4 +435,16 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_drive_files_checksum'), table_name='drive_files')
     op.drop_table('drive_files')
     # ### end Alembic commands ###
+
+
+# Keep the initial revision portable.  The generated PostgreSQL-only body
+# above is retained as historical context, while these definitions are the
+# functions Alembic calls.  SQLAlchemy compiles the metadata types and
+# defaults for the active dialect (including SQL Server).
+def upgrade() -> None:
+    Base.metadata.create_all(bind=op.get_bind())
+
+
+def downgrade() -> None:
+    Base.metadata.drop_all(bind=op.get_bind())
 

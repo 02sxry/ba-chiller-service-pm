@@ -1,4 +1,5 @@
 import hashlib
+import re
 import uuid
 from datetime import UTC, date, datetime
 from typing import Annotated
@@ -10,17 +11,19 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.db import get_db
+from app.core.db import get_db, lock_query
 from app.core.security import AdminUser, CurrentUser, create_access_token, hash_password, verify_password
 from app.domain.enums import AppointmentStatus, NotificationStatus, Role, SyncStatus
 from app.domain.models import (
     AnnualPlan,
     Appointment,
     AppointmentRevision,
+    AuditLog,
     Equipment,
     Hospital,
     LineGroupMapping,
     MasterDataDraft,
+    NextYearPlanDraft,
     NotificationJob,
     PMSlot,
     ScheduleIntake,
@@ -42,10 +45,12 @@ from app.domain.schemas import (
     DateChangeRequest,
     DraftView,
     EquipmentCreate,
+    EquipmentUpdate,
     EquipmentView,
     HealthResponse,
     HospitalCreate,
     HospitalSheetSubmission,
+    HospitalUpdate,
     HospitalView,
     IntakeView,
     LineGroupCreate,
@@ -64,6 +69,7 @@ from app.domain.schemas import (
     TextIntakeRequest,
     TokenResponse,
     UserCreateRequest,
+    UserUpdateRequest,
     UserView,
 )
 from app.integrations.gemini import build_intent_provider
@@ -98,6 +104,17 @@ from app.services.planning import (
 
 router = APIRouter()
 Db = Annotated[Session, Depends(get_db)]
+
+
+def _normalize_chiller_serial(data: dict[str, object]) -> None:
+    equipment_name = str(data.get("equipment_name") or "")
+    serial_number = data.get("serial_number")
+    if not isinstance(serial_number, str) or not serial_number.strip():
+        return
+    serial_number = re.sub(r"-CH$", "", serial_number.strip(), flags=re.IGNORECASE)
+    if "chiller" in equipment_name.casefold():
+        serial_number = f"{serial_number}-CH"
+    data["serial_number"] = serial_number
 
 
 @router.get("/health", response_model=HealthResponse, tags=["system"])
@@ -150,7 +167,9 @@ def create_user(request: UserCreateRequest, db: Db, admin: AdminUser) -> User:
         raise HTTPException(status_code=409, detail="มี User ID นี้แล้ว")
     user = User(
         username=username,
-        email=f"{username}@local.invalid",
+        # The email column is retained for compatibility, but users sign in with
+        # username. Use a valid internal domain so UserView validation succeeds.
+        email=f"{username}@local.dev",
         display_name=request.display_name.strip(),
         password_hash=hash_password(request.password),
         role=request.role,
@@ -165,6 +184,95 @@ def create_user(request: UserCreateRequest, db: Db, admin: AdminUser) -> User:
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=409, detail="มี User ID นี้แล้ว") from exc
+
+
+@router.patch("/users/{user_id}", response_model=UserView, tags=["users"])
+def update_user(user_id: uuid.UUID, request: UserUpdateRequest, db: Db, admin: AdminUser) -> User:
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="ไม่พบผู้ใช้งาน")
+    updates = request.model_dump(exclude_unset=True)
+    if not updates:
+        return user
+    if user.id == admin.id and updates.get("role") == Role.VIEWER:
+        raise HTTPException(status_code=409, detail="ไม่สามารถลดสิทธิ์ของตัวเองขณะใช้งานอยู่")
+    if updates.get("role") == Role.VIEWER and user.role == Role.ADMIN:
+        active_admins = db.scalar(select(func.count()).select_from(User).where(User.role == Role.ADMIN, User.active.is_(True))) or 0
+        if active_admins <= 1:
+            raise HTTPException(status_code=409, detail="ต้องมี Admin ที่ใช้งานได้อย่างน้อย 1 คน")
+    old_values = {"display_name": user.display_name, "role": user.role.value, "active": user.active}
+    if "display_name" in updates:
+        user.display_name = updates["display_name"].strip()
+    if "password" in updates and updates["password"]:
+        user.password_hash = hash_password(updates["password"])
+    if "role" in updates and updates["role"] is not None:
+        user.role = updates["role"]
+    db.flush()
+    new_values = {
+        key: value.value if isinstance(value, Role) else value
+        for key, value in updates.items()
+        if key != "password"
+    }
+    record_audit(
+        db,
+        actor=admin,
+        action="USER_UPDATED",
+        entity_type="user",
+        entity_id=user.id,
+        old_values=old_values,
+        new_values=new_values,
+    )
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.delete("/users/{user_id}", response_model=UserView, tags=["users"])
+def deactivate_user(user_id: uuid.UUID, db: Db, admin: AdminUser) -> User:
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="ไม่พบผู้ใช้งาน")
+    if user.id == admin.id:
+        raise HTTPException(status_code=409, detail="ไม่สามารถปิดใช้งานตัวเองได้")
+    if user.role == Role.ADMIN:
+        active_admins = db.scalar(select(func.count()).select_from(User).where(User.role == Role.ADMIN, User.active.is_(True))) or 0
+        if active_admins <= 1:
+            raise HTTPException(status_code=409, detail="ต้องมี Admin ที่ใช้งานได้อย่างน้อย 1 คน")
+    user.active = False
+    db.flush()
+    record_audit(db, actor=admin, action="USER_DEACTIVATED", entity_type="user", entity_id=user.id, new_values={"active": False})
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.delete("/users/{user_id}/permanent", response_model=UserView, tags=["users"])
+def delete_user_permanently(user_id: uuid.UUID, db: Db, admin: AdminUser) -> User:
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="ไม่พบผู้ใช้งาน")
+    if user.id == admin.id:
+        raise HTTPException(status_code=409, detail="ไม่สามารถลบบัญชีที่กำลังใช้งานอยู่ได้")
+    if user.role == Role.ADMIN:
+        active_admins = db.scalar(select(func.count()).select_from(User).where(User.role == Role.ADMIN, User.active.is_(True))) or 0
+        if user.active and active_admins <= 1:
+            raise HTTPException(status_code=409, detail="ต้องมี Admin ที่ใช้งานได้อย่างน้อย 1 คน")
+
+    dependencies = {
+        "ประวัติการตรวจข้อมูล": db.scalar(select(func.count()).select_from(MasterDataDraft).where(MasterDataDraft.reviewed_by_id == user.id)) or 0,
+        "แผน PM ที่อนุมัติ": db.scalar(select(func.count()).select_from(AnnualPlan).where(AnnualPlan.approved_by_id == user.id)) or 0,
+        "ประวัติการนัดหมาย": db.scalar(select(func.count()).select_from(AppointmentRevision).where(AppointmentRevision.approved_by_id == user.id)) or 0,
+        "ประวัติการแก้ไขระบบ": db.scalar(select(func.count()).select_from(AuditLog).where(AuditLog.actor_id == user.id)) or 0,
+    }
+    used_by = [f"{label} {count} รายการ" for label, count in dependencies.items() if count]
+    if used_by:
+        raise HTTPException(status_code=409, detail=f"ลบถาวรไม่ได้เพราะบัญชีนี้มีประวัติการใช้งาน: {', '.join(used_by)} ให้ใช้ปิดใช้งานแทน")
+
+    response = user
+    record_audit(db, actor=admin, action="USER_DELETED", entity_type="user", entity_id=user.id, old_values={"username": user.username, "display_name": user.display_name, "role": user.role.value})
+    db.delete(user)
+    db.commit()
+    return response
 
 
 @router.get("/hospitals", response_model=list[HospitalView], tags=["master-data"])
@@ -189,6 +297,38 @@ def create_hospital(request: HospitalCreate, db: Db, admin: AdminUser) -> Hospit
         db, actor=admin, action="HOSPITAL_CREATED", entity_type="hospital",
         entity_id=hospital.id, new_values=data,
     )
+    db.commit()
+    db.refresh(hospital)
+    return hospital
+
+
+@router.patch("/hospitals/{hospital_id}", response_model=HospitalView, tags=["master-data"])
+def update_hospital(hospital_id: uuid.UUID, request: HospitalUpdate, db: Db, admin: AdminUser) -> Hospital:
+    hospital = db.get(Hospital, hospital_id)
+    if not hospital:
+        raise HTTPException(status_code=404, detail="ไม่พบโรงพยาบาล")
+    old_values = {"hospital_name": hospital.hospital_name, "short_name": hospital.short_name, "notes": hospital.notes}
+    for field, value in request.model_dump(exclude_unset=True).items():
+        setattr(hospital, field, value.strip() if isinstance(value, str) and value else value)
+    try:
+        db.flush()
+        record_audit(db, actor=admin, action="HOSPITAL_UPDATED", entity_type="hospital", entity_id=hospital.id, old_values=old_values, new_values=request.model_dump(exclude_unset=True))
+        db.commit()
+        db.refresh(hospital)
+        return hospital
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="แก้ไขโรงพยาบาลไม่สำเร็จ") from exc
+
+
+@router.delete("/hospitals/{hospital_id}", response_model=HospitalView, tags=["master-data"])
+def deactivate_hospital(hospital_id: uuid.UUID, db: Db, admin: AdminUser) -> Hospital:
+    hospital = db.get(Hospital, hospital_id)
+    if not hospital:
+        raise HTTPException(status_code=404, detail="ไม่พบโรงพยาบาล")
+    hospital.active = False
+    db.flush()
+    record_audit(db, actor=admin, action="HOSPITAL_DEACTIVATED", entity_type="hospital", entity_id=hospital.id, new_values={"active": False})
     db.commit()
     db.refresh(hospital)
     return hospital
@@ -286,9 +426,15 @@ def approve_plan_draft_endpoint(
 
 @router.get("/equipment", response_model=list[EquipmentView], tags=["master-data"])
 def list_equipment(db: Db, _: CurrentUser, hospital_id: uuid.UUID | None = None) -> list[Equipment]:
-    query = select(Equipment).order_by(Equipment.equipment_code)
+    query = select(Equipment).where(Equipment.active.is_(True)).order_by(Equipment.equipment_code)
     if hospital_id:
         query = query.where(Equipment.hospital_id == hospital_id)
+    return list(db.scalars(query).all())
+
+
+@router.get("/equipment/archive", response_model=list[EquipmentView], tags=["master-data"])
+def list_equipment_archive(db: Db, _: AdminUser) -> list[Equipment]:
+    query = select(Equipment).where(Equipment.active.is_(False)).order_by(Equipment.updated_at.desc())
     return list(db.scalars(query).all())
 
 
@@ -297,6 +443,7 @@ def create_equipment(request: EquipmentCreate, db: Db, admin: AdminUser) -> Equi
     if not db.get(Hospital, request.hospital_id):
         raise HTTPException(status_code=404, detail="ไม่พบโรงพยาบาล")
     data = request.model_dump()
+    _normalize_chiller_serial(data)
     data["equipment_code"] = data["equipment_code"] or f"EQUIP-{uuid.uuid4().hex[:10].upper()}"
     equipment = Equipment(**data)
     db.add(equipment)
@@ -311,6 +458,133 @@ def create_equipment(request: EquipmentCreate, db: Db, admin: AdminUser) -> Equi
     db.commit()
     db.refresh(equipment)
     return equipment
+
+
+@router.patch("/equipment/{equipment_id}", response_model=EquipmentView, tags=["master-data"])
+def update_equipment(equipment_id: uuid.UUID, request: EquipmentUpdate, db: Db, admin: AdminUser) -> Equipment:
+    equipment = db.get(Equipment, equipment_id)
+    if not equipment:
+        raise HTTPException(status_code=404, detail="ไม่พบอุปกรณ์")
+    updates = request.model_dump(exclude_unset=True)
+    if updates.get("hospital_id") and not db.get(Hospital, updates["hospital_id"]):
+        raise HTTPException(status_code=404, detail="ไม่พบโรงพยาบาลใหม่")
+    equipment_data = {
+        "equipment_name": updates.get("equipment_name", equipment.equipment_name),
+        "model": updates.get("model", equipment.model),
+        "serial_number": updates.get("serial_number", equipment.serial_number),
+    }
+    _normalize_chiller_serial(equipment_data)
+    if equipment_data["serial_number"] != equipment.serial_number:
+        updates["serial_number"] = equipment_data["serial_number"]
+    old_values = {field: getattr(equipment, field) for field in updates}
+    for field, value in updates.items():
+        setattr(equipment, field, value.strip() if isinstance(value, str) and value else value)
+    try:
+        db.flush()
+        record_audit(db, actor=admin, action="EQUIPMENT_UPDATED", entity_type="equipment", entity_id=equipment.id, old_values=old_values, new_values=updates)
+        db.commit()
+        db.refresh(equipment)
+        return equipment
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="แก้ไขอุปกรณ์ไม่สำเร็จ อาจมี Serial number ซ้ำ") from exc
+
+
+@router.delete("/equipment/{equipment_id}", response_model=EquipmentView, tags=["master-data"])
+def deactivate_equipment(equipment_id: uuid.UUID, db: Db, admin: AdminUser) -> Equipment:
+    equipment = db.get(Equipment, equipment_id)
+    if not equipment:
+        raise HTTPException(status_code=404, detail="ไม่พบอุปกรณ์")
+    equipment.active = False
+
+    active_plans = db.scalars(
+        select(AnnualPlan).where(AnnualPlan.equipment_id == equipment.id, AnnualPlan.active.is_(True))
+    ).all()
+    for plan in active_plans:
+        plan.active = False
+
+    active_slots = db.scalars(
+        select(PMSlot).where(PMSlot.equipment_id == equipment.id, PMSlot.active.is_(True))
+    ).all()
+    for slot in active_slots:
+        slot.active = False
+
+    open_drafts = db.scalars(
+        select(NextYearPlanDraft).where(
+            NextYearPlanDraft.equipment_id == equipment.id,
+            NextYearPlanDraft.excluded.is_(False),
+        )
+    ).all()
+    for draft in open_drafts:
+        draft.excluded = True
+
+    appointments = db.scalars(
+        select(Appointment).where(
+            Appointment.equipment_id == equipment.id,
+            Appointment.status != AppointmentStatus.CANCELLED,
+        )
+    ).all()
+    for appointment in appointments:
+        appointment.status = AppointmentStatus.CANCELLED
+
+    db.flush()
+    record_audit(
+        db,
+        actor=admin,
+        action="EQUIPMENT_DEACTIVATED",
+        entity_type="equipment",
+        entity_id=equipment.id,
+        new_values={
+            "active": False,
+            "annual_plans_cancelled": len(active_plans),
+            "pm_slots_cancelled": len(active_slots),
+            "next_year_drafts_excluded": len(open_drafts),
+            "appointments_cancelled": len(appointments),
+        },
+    )
+    db.commit()
+    db.refresh(equipment)
+    return equipment
+
+
+@router.delete("/equipment/{equipment_id}/permanent", response_model=EquipmentView, tags=["master-data"])
+def delete_equipment_permanently(equipment_id: uuid.UUID, db: Db, admin: AdminUser) -> Equipment:
+    equipment = db.get(Equipment, equipment_id)
+    if not equipment:
+        raise HTTPException(status_code=404, detail="ไม่พบอุปกรณ์")
+    if equipment.active:
+        raise HTTPException(status_code=409, detail="ต้องเก็บอุปกรณ์เข้า Archive ก่อนจึงจะลบถาวรได้")
+
+    appointment_count = db.scalar(
+        select(func.count()).select_from(Appointment).where(Appointment.equipment_id == equipment.id)
+    ) or 0
+    if appointment_count:
+        raise HTTPException(
+            status_code=409,
+            detail=f"ลบถาวรไม่ได้เพราะมีนัดหมาย {appointment_count} รายการอ้างถึงอุปกรณ์นี้ ให้เก็บ Archive ไว้แทนเพื่อรักษาประวัตินัด",
+        )
+
+    plans = db.scalars(select(AnnualPlan).where(AnnualPlan.equipment_id == equipment.id)).all()
+    drafts = db.scalars(select(NextYearPlanDraft).where(NextYearPlanDraft.equipment_id == equipment.id)).all()
+    for draft in drafts:
+        db.delete(draft)
+    for plan in plans:
+        db.delete(plan)
+    db.flush()
+
+    response = equipment
+    record_audit(
+        db,
+        actor=admin,
+        action="EQUIPMENT_DELETED",
+        entity_type="equipment",
+        entity_id=equipment.id,
+        old_values={"equipment_code": equipment.equipment_code, "equipment_name": equipment.equipment_name},
+        new_values={"plans_deleted": len(plans), "next_year_drafts_deleted": len(drafts)},
+    )
+    db.delete(equipment)
+    db.commit()
+    return response
 
 
 @router.get("/line-groups", response_model=list[LineGroupView], tags=["line"])
@@ -386,7 +660,7 @@ def approve_plan_endpoint(request: PlanApproveRequest, db: Db, admin: AdminUser)
 
 @router.get("/slots", response_model=list[SlotView], tags=["planning"])
 def list_slots(db: Db, _: CurrentUser, plan_year: int | None = None) -> list[PMSlot]:
-    query = select(PMSlot).order_by(PMSlot.plan_year, PMSlot.planned_month)
+    query = select(PMSlot).where(PMSlot.active.is_(True)).order_by(PMSlot.plan_year, PMSlot.planned_month)
     if plan_year:
         query = query.where(PMSlot.plan_year == plan_year)
     return list(db.scalars(query).all())
@@ -625,7 +899,7 @@ def list_sync_events(
 
 @router.post("/google-sync/events/{event_id}/run", response_model=SyncEventView, tags=["google-sync"])
 def run_google_sync_event(event_id: uuid.UUID, db: Db, _: AdminUser) -> SyncEvent:
-    event = db.scalar(select(SyncEvent).where(SyncEvent.id == event_id).with_for_update())
+    event = db.scalar(lock_query(select(SyncEvent).where(SyncEvent.id == event_id), SyncEvent, db))
     if not event:
         raise HTTPException(status_code=404, detail="ไม่พบ sync event")
     try:
@@ -640,7 +914,7 @@ def run_google_sync_event(event_id: uuid.UUID, db: Db, _: AdminUser) -> SyncEven
 
 @router.post("/google-sync/events/{event_id}/retry", response_model=SyncEventView, tags=["google-sync"])
 def retry_google_sync_event(event_id: uuid.UUID, db: Db, admin: AdminUser) -> SyncEvent:
-    event = db.scalar(select(SyncEvent).where(SyncEvent.id == event_id).with_for_update())
+    event = db.scalar(lock_query(select(SyncEvent).where(SyncEvent.id == event_id), SyncEvent, db))
     if not event:
         raise HTTPException(status_code=404, detail="ไม่พบ sync event")
     if event.direction != "OUTBOUND" or event.status not in {SyncStatus.FAILED, SyncStatus.CONFLICT}:
@@ -785,7 +1059,17 @@ def dashboard(db: Db, _: CurrentUser, year: int = Query(default_factory=lambda: 
         unscheduled_slots=max(total_pm_slots - len([item for item in appointments if item.status != AppointmentStatus.CANCELLED]), 0),
         upcoming_appointments=sum(bool(revision and revision.scheduled_date >= today) for revision in current_revisions),
         past_due_unconfirmed=sum(bool(revision and revision.scheduled_date < today and not item.confirmed_revision_id) for item, revision in zip(appointments, current_revisions, strict=True)),
-        unscheduled_backlog=db.scalar(select(func.count()).select_from(PMSlot).outerjoin(Appointment).where(PMSlot.plan_year == year, PMSlot.planned_month < today.month, Appointment.id.is_(None))) or 0,
+        unscheduled_backlog=db.scalar(
+            select(func.count())
+            .select_from(PMSlot)
+            .outerjoin(Appointment)
+            .where(
+                PMSlot.plan_year == year,
+                PMSlot.active.is_(True),
+                PMSlot.planned_month < today.month,
+                Appointment.id.is_(None),
+            )
+        ) or 0,
         cancelled_appointments=sum(item.status == AppointmentStatus.CANCELLED for item in appointments),
         admin_changed_appointments=sum(bool(item.confirmed_revision_id and item.current_revision_id != item.confirmed_revision_id) for item in appointments),
         failed_notifications=db.scalar(select(func.count()).select_from(NotificationJob).where(NotificationJob.status.in_([NotificationStatus.FAILED, NotificationStatus.REVIEW_REQUIRED]))) or 0,

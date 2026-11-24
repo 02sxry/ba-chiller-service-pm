@@ -15,9 +15,9 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    Uuid,
     func,
 )
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -35,7 +35,7 @@ from app.domain.enums import (
 
 
 class IdMixin:
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
 
 class TimestampMixin:
@@ -125,7 +125,7 @@ class MasterDataDraft(IdMixin, TimestampMixin, VersionMixin, Base):
     proposed_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     suggestions: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
     parent_draft_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("master_data_drafts.id"))
-    resolved_record_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    resolved_record_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True))
     reviewed_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     review_notes: Mapped[str | None] = mapped_column(Text)
@@ -202,8 +202,8 @@ class Appointment(IdMixin, TimestampMixin, VersionMixin, Base):
     equipment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("equipment.id"), index=True)
     technician_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("technicians.id"))
     status: Mapped[AppointmentStatus] = mapped_column(Enum(AppointmentStatus, name="appointment_status"))
-    current_revision_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
-    confirmed_revision_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    current_revision_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True))
+    confirmed_revision_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True))
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     confirmation_source: Mapped[str | None] = mapped_column(String(50))
     slot: Mapped[PMSlot] = relationship(back_populates="appointment")
@@ -274,7 +274,7 @@ class SyncEvent(IdMixin, TimestampMixin, VersionMixin, Base):
     idempotency_key: Mapped[str] = mapped_column(String(255), unique=True)
     direction: Mapped[str] = mapped_column(String(20))
     entity_type: Mapped[str] = mapped_column(String(80))
-    entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True))
     payload: Mapped[dict[str, Any]] = mapped_column(JSON)
     expected_version: Mapped[int | None] = mapped_column(Integer)
     status: Mapped[SyncStatus] = mapped_column(Enum(SyncStatus, name="sync_status"), default=SyncStatus.PENDING)
@@ -310,7 +310,7 @@ class AuditLog(IdMixin, Base):
     actor_label: Mapped[str | None] = mapped_column(String(255))
     action: Mapped[str] = mapped_column(String(100), index=True)
     entity_type: Mapped[str] = mapped_column(String(100))
-    entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), index=True)
     old_values: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     new_values: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     reason: Mapped[str | None] = mapped_column(Text)

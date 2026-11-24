@@ -4,6 +4,7 @@ from datetime import UTC, date, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.db import lock_query
 from app.domain.enums import DraftStatus, DraftType, PlanningMode
 from app.domain.models import Equipment, Hospital, HospitalAlias, MasterDataDraft, User
 from app.domain.schemas import PlanApproveRequest
@@ -64,7 +65,7 @@ def approve_hospital_as_new(
     hospital_name: str,
     admin: User,
 ) -> Hospital:
-    draft = db.scalar(select(MasterDataDraft).where(MasterDataDraft.id == draft_id).with_for_update())
+    draft = db.scalar(lock_query(select(MasterDataDraft).where(MasterDataDraft.id == draft_id), MasterDataDraft, db))
     if not draft or draft.draft_type != DraftType.HOSPITAL:
         raise DraftError("ไม่พบ Hospital Draft")
     if draft.status != DraftStatus.PENDING:
@@ -95,7 +96,7 @@ def match_hospital_draft(
     *,
     add_alias: bool,
 ) -> Hospital:
-    draft = db.scalar(select(MasterDataDraft).where(MasterDataDraft.id == draft_id).with_for_update())
+    draft = db.scalar(lock_query(select(MasterDataDraft).where(MasterDataDraft.id == draft_id), MasterDataDraft, db))
     hospital = db.get(Hospital, hospital_id)
     if not draft or draft.draft_type != DraftType.HOSPITAL or not hospital:
         raise DraftError("ไม่พบ Draft หรือโรงพยาบาล")
@@ -203,7 +204,7 @@ def approve_equipment_draft(
     room_location: str | None = None,
     notes: str | None = None,
 ) -> Equipment:
-    draft = db.scalar(select(MasterDataDraft).where(MasterDataDraft.id == draft_id).with_for_update())
+    draft = db.scalar(lock_query(select(MasterDataDraft).where(MasterDataDraft.id == draft_id), MasterDataDraft, db))
     if not draft or draft.draft_type != DraftType.EQUIPMENT:
         raise DraftError("ไม่พบ Equipment Draft")
     if draft.status != DraftStatus.PENDING:
@@ -309,7 +310,7 @@ def approve_plan_draft(
     planned_months: list[int] | None,
     admin: User,
 ):
-    draft = db.scalar(select(MasterDataDraft).where(MasterDataDraft.id == draft_id).with_for_update())
+    draft = db.scalar(lock_query(select(MasterDataDraft).where(MasterDataDraft.id == draft_id), MasterDataDraft, db))
     if not draft or draft.draft_type != DraftType.PM_PLAN:
         raise DraftError("ไม่พบ PM Plan Draft")
     if draft.status != DraftStatus.PENDING:

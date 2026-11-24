@@ -19,6 +19,18 @@ VIEW_SHEETS = [
     "Confirmations_View", "Reschedule_Requests_View", "PM_Yearly_Summary",
     "Sync_Status", "Data_Dictionary",
 ]
+README_ROWS = [
+    ["BA CHILLER SERVICE & PM — Google Sheets Template"],
+    ["วิธีใช้", "กรอกเฉพาะชีตที่ลงท้ายด้วย _Input แล้วปล่อยให้ระบบสร้างชีต _View ให้อัตโนมัติ"],
+    ["แหล่งข้อมูลจริง", "PostgreSQL เป็นแหล่งข้อมูลจริง Google Sheets ใช้กรอกข้อมูลและแสดงผลเท่านั้น"],
+    ["พร้อมใช้งานตอนนี้", "Hospitals_Input รองรับการส่งเข้า/ออกระบบแล้ว"],
+    ["เตรียมไว้สำหรับขั้นถัดไป", "Equipment_Input, PM_Plans_Input และ Next_Year_PM_Drafts มีโครงสร้างพร้อม แต่ต้องเปิด API sync เพิ่มก่อนใช้จริง"],
+    ["ข้อห้าม", "ห้ามแก้ไขชีต _View และห้ามใช้เลขแถวเป็น row_key"],
+    ["operation", "ใช้ CREATE สำหรับข้อมูลใหม่, UPDATE สำหรับแก้ไข และ DEACTIVATE สำหรับปิดใช้งาน"],
+    ["row_key", "รหัสถาวรของแถว เช่น hospital-001 ห้ามเปลี่ยนหลังส่งข้อมูลแล้ว"],
+    ["record_id", "เว้นว่างเมื่อ CREATE; ใช้ UUID เดิมเมื่อ UPDATE หรือ DEACTIVATE"],
+    ["expected_version", "เว้นว่างเมื่อ CREATE; ใช้ version ล่าสุดจากชีต _View เมื่อ UPDATE"],
+]
 CONTROL_COLUMNS = ["row_key", "record_id", "expected_version", "operation"]
 RESULT_COLUMNS = ["validation_status", "validation_errors", "processed_at"]
 
@@ -34,9 +46,25 @@ def style_header(sheet) -> None:
         sheet.column_dimensions[get_column_letter(index)].width = max(16, len(str(cell.value)) + 3)
 
 
+def create_readme(workbook: Workbook) -> None:
+    sheet = workbook.create_sheet("เริ่มที่นี่", 0)
+    for row in README_ROWS:
+        sheet.append(row)
+    sheet["A1"].fill = PatternFill("solid", fgColor="0B374C")
+    sheet["A1"].font = Font(color="FFFFFF", bold=True, size=14)
+    sheet.merge_cells("A1:B1")
+    sheet.column_dimensions["A"].width = 24
+    sheet.column_dimensions["B"].width = 110
+    sheet.freeze_panes = "A2"
+    for row in range(2, sheet.max_row + 1):
+        sheet.cell(row, 1).font = Font(bold=True, color="0B374C")
+        sheet.cell(row, 2).alignment = sheet.cell(row, 2).alignment.copy(wrap_text=True)
+
+
 def create(path: Path) -> None:
     workbook = Workbook()
     workbook.remove(workbook.active)
+    create_readme(workbook)
     for name, business_columns in INPUT_SHEETS.items():
         sheet = workbook.create_sheet(name)
         sheet.append(CONTROL_COLUMNS + business_columns + RESULT_COLUMNS)

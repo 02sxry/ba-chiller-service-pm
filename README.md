@@ -1,6 +1,6 @@
 # BA Chiller Service & PM Assistant
 
-ระบบวางแผน PM และจัดการนัดหมายงาน Chiller สำหรับโรงพยาบาล โดย PostgreSQL เป็นแหล่งข้อมูลจริง และ Google Sheets เป็นช่องทาง staging/reporting เท่านั้น
+ระบบวางแผน PM และจัดการนัดหมายงาน Chiller สำหรับโรงพยาบาล โดย PostgreSQL เป็นค่าเริ่มต้นสำหรับการทดลอง และรองรับ SQL Server/SSMS สำหรับใช้งานในองค์กร ส่วน Google Sheets เป็นช่องทาง staging/reporting เท่านั้น
 
 > `CONFIRMED` หมายถึงโรงพยาบาลยอมรับวันนัดล่วงหน้า ระบบนี้ไม่มีสถานะ `COMPLETED` และไม่อนุมานว่างานบริการเสร็จแล้ว
 
@@ -52,6 +52,8 @@ npm run build
 ```
 
 ระบบปิดการส่ง notification จริงไว้โดยค่าเริ่มต้น และใช้ mock LINE/Google adapter เมื่อไม่มี credentials ดูรายละเอียดใน [คู่มือ Integration](docs/INTEGRATIONS.md) และ [รายงานการทดสอบ](TEST_REPORT.md)
+
+ถ้าบริษัทกำหนดใช้ SQL Server/SSMS ให้ทำตาม [คู่มือ SQL Server](docs/SQL_SERVER.md) ก่อนย้ายข้อมูลจริง
 
 ## โครงสร้าง
 

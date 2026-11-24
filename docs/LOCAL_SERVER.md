@@ -2,6 +2,8 @@
 
 ## รูปแบบแนะนำ
 
+ถ้า Server ของบริษัทมี SQL Server/SSMS อยู่แล้ว ให้ใช้ฐานข้อมูลนั้นได้ โดยติดตั้ง ODBC Driver 18 และทำตาม [คู่มือ SQL Server](SQL_SERVER.md) แทนส่วน PostgreSQL ใน Compose ด้านล่าง การเปลี่ยนฐานข้อมูลควรเสร็จก่อนนำข้อมูลจริงเข้า
+
 ใช้ Linux VM บน Windows host หรือ container runtime ที่รองรับ Docker Compose ให้ LAN/VPN เข้า HTTPS reverse proxy เท่านั้น PostgreSQL, Docker socket และ OS administration ต้องไม่เปิดสู่ internet
 
 1. Clone private repository เข้า VM
