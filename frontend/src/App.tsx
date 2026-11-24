@@ -1,7 +1,8 @@
-import { FormEvent, useState } from 'react'
+import { FormEvent, ReactNode, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Shell } from './components/Shell'
-import { login } from './lib/api'
+import { api, login } from './lib/api'
 import { AppointmentsPage, ApprovalQueuePage, Dashboard, DatabaseEntryPage, DraftsPage, EquipmentPage, GoogleSyncPage, HospitalsPage, LineGroupsPage, Placeholder, PlannerPage, ReportsPage, SettingsPage, SlotsPage, UsersPage } from './pages'
 
 const pages: Record<string, string> = {
@@ -53,6 +54,13 @@ function LoginPage({ onSuccess }: { onSuccess: () => void }) {
   )
 }
 
+function AdminOnly({ children }: { children: ReactNode }) {
+  const user = useQuery({ queryKey: ['current-user'], queryFn: () => api<{ role: string }>('/auth/me') })
+  if (user.isLoading) return <section className="page-heading"><div><h1>กำลังตรวจสอบสิทธิ์…</h1></div></section>
+  if (user.data?.role !== 'ADMIN') return <Navigate to="/" replace />
+  return children
+}
+
 export default function App() {
   const [authenticated, setAuthenticated] = useState(() => Boolean(localStorage.getItem('ba_access_token')))
   if (!authenticated) return <LoginPage onSuccess={() => setAuthenticated(true)} />
@@ -60,7 +68,7 @@ export default function App() {
     <Shell onLogout={() => setAuthenticated(false)}>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/data-entry" element={<DatabaseEntryPage />} />
+        <Route path="/data-entry" element={<AdminOnly><DatabaseEntryPage /></AdminOnly>} />
         <Route path="/hospitals" element={<HospitalsPage />} />
         <Route path="/equipment" element={<EquipmentPage />} />
         <Route path="/planner" element={<PlannerPage />} />

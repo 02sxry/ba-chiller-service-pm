@@ -44,6 +44,12 @@ class HospitalCreate(BaseModel):
     notes: str | None = None
 
 
+class HospitalUpdate(BaseModel):
+    hospital_name: str | None = Field(default=None, min_length=1, max_length=255)
+    short_name: str | None = Field(default=None, max_length=120)
+    notes: str | None = None
+
+
 class HospitalView(HospitalCreate, ORMModel):
     id: uuid.UUID
     active: bool
@@ -58,6 +64,15 @@ class EquipmentCreate(BaseModel):
     manufacturer_id: uuid.UUID | None = None
     equipment_type_id: uuid.UUID | None = None
     equipment_name: str = Field(min_length=1, max_length=255)
+    model: str | None = None
+    serial_number: str | None = None
+    room_location: str | None = None
+    notes: str | None = None
+
+
+class EquipmentUpdate(BaseModel):
+    hospital_id: uuid.UUID | None = None
+    equipment_name: str | None = Field(default=None, min_length=1, max_length=255)
     model: str | None = None
     serial_number: str | None = None
     room_location: str | None = None

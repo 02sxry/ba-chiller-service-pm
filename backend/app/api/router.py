@@ -42,10 +42,12 @@ from app.domain.schemas import (
     DateChangeRequest,
     DraftView,
     EquipmentCreate,
+    EquipmentUpdate,
     EquipmentView,
     HealthResponse,
     HospitalCreate,
     HospitalSheetSubmission,
+    HospitalUpdate,
     HospitalView,
     IntakeView,
     LineGroupCreate,
@@ -194,6 +196,38 @@ def create_hospital(request: HospitalCreate, db: Db, admin: AdminUser) -> Hospit
     return hospital
 
 
+@router.patch("/hospitals/{hospital_id}", response_model=HospitalView, tags=["master-data"])
+def update_hospital(hospital_id: uuid.UUID, request: HospitalUpdate, db: Db, admin: AdminUser) -> Hospital:
+    hospital = db.get(Hospital, hospital_id)
+    if not hospital:
+        raise HTTPException(status_code=404, detail="ไม่พบโรงพยาบาล")
+    old_values = {"hospital_name": hospital.hospital_name, "short_name": hospital.short_name, "notes": hospital.notes}
+    for field, value in request.model_dump(exclude_unset=True).items():
+        setattr(hospital, field, value.strip() if isinstance(value, str) and value else value)
+    try:
+        db.flush()
+        record_audit(db, actor=admin, action="HOSPITAL_UPDATED", entity_type="hospital", entity_id=hospital.id, old_values=old_values, new_values=request.model_dump(exclude_unset=True))
+        db.commit()
+        db.refresh(hospital)
+        return hospital
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="แก้ไขโรงพยาบาลไม่สำเร็จ") from exc
+
+
+@router.delete("/hospitals/{hospital_id}", response_model=HospitalView, tags=["master-data"])
+def deactivate_hospital(hospital_id: uuid.UUID, db: Db, admin: AdminUser) -> Hospital:
+    hospital = db.get(Hospital, hospital_id)
+    if not hospital:
+        raise HTTPException(status_code=404, detail="ไม่พบโรงพยาบาล")
+    hospital.active = False
+    db.flush()
+    record_audit(db, actor=admin, action="HOSPITAL_DEACTIVATED", entity_type="hospital", entity_id=hospital.id, new_values={"active": False})
+    db.commit()
+    db.refresh(hospital)
+    return hospital
+
+
 @router.get("/drafts", response_model=list[DraftView], tags=["drafts"])
 def list_drafts(db: Db, _: AdminUser, status: str | None = None) -> list[MasterDataDraft]:
     query = select(MasterDataDraft).order_by(MasterDataDraft.created_at.desc())
@@ -308,6 +342,41 @@ def create_equipment(request: EquipmentCreate, db: Db, admin: AdminUser) -> Equi
         db, actor=admin, action="EQUIPMENT_CREATED", entity_type="equipment",
         entity_id=equipment.id, new_values=data,
     )
+    db.commit()
+    db.refresh(equipment)
+    return equipment
+
+
+@router.patch("/equipment/{equipment_id}", response_model=EquipmentView, tags=["master-data"])
+def update_equipment(equipment_id: uuid.UUID, request: EquipmentUpdate, db: Db, admin: AdminUser) -> Equipment:
+    equipment = db.get(Equipment, equipment_id)
+    if not equipment:
+        raise HTTPException(status_code=404, detail="ไม่พบอุปกรณ์")
+    updates = request.model_dump(exclude_unset=True)
+    if updates.get("hospital_id") and not db.get(Hospital, updates["hospital_id"]):
+        raise HTTPException(status_code=404, detail="ไม่พบโรงพยาบาลใหม่")
+    old_values = {field: getattr(equipment, field) for field in updates}
+    for field, value in updates.items():
+        setattr(equipment, field, value.strip() if isinstance(value, str) and value else value)
+    try:
+        db.flush()
+        record_audit(db, actor=admin, action="EQUIPMENT_UPDATED", entity_type="equipment", entity_id=equipment.id, old_values=old_values, new_values=updates)
+        db.commit()
+        db.refresh(equipment)
+        return equipment
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="แก้ไขอุปกรณ์ไม่สำเร็จ อาจมี Serial number ซ้ำ") from exc
+
+
+@router.delete("/equipment/{equipment_id}", response_model=EquipmentView, tags=["master-data"])
+def deactivate_equipment(equipment_id: uuid.UUID, db: Db, admin: AdminUser) -> Equipment:
+    equipment = db.get(Equipment, equipment_id)
+    if not equipment:
+        raise HTTPException(status_code=404, detail="ไม่พบอุปกรณ์")
+    equipment.active = False
+    db.flush()
+    record_audit(db, actor=admin, action="EQUIPMENT_DEACTIVATED", entity_type="equipment", entity_id=equipment.id, new_values={"active": False})
     db.commit()
     db.refresh(equipment)
     return equipment

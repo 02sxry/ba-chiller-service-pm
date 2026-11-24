@@ -93,3 +93,5 @@ Docker build ครั้งแรกใน execution environment ติด prox
 
 การสร้าง Google Sheets workbook template รอบล่าสุดผ่าน: สร้างไฟล์ `output/BA_CHILLER_PM_MASTER.xlsx` สำเร็จ ตรวจสอบชื่อชีต 17 ชีตและหัวคอลัมน์ของ Input tabs แล้ว; ยังไม่ได้ทดสอบกับ Google credentials จริง
 
+หลังเพิ่มหน้า Admin กรอกข้อมูลฐานข้อมูล: `python -m compileall -q backend/app`, `git diff --check` และ `npm run build` ผ่าน; ยังไม่ได้รัน integration test ที่ต้องใช้ PostgreSQL จริงในรอบนี้
+

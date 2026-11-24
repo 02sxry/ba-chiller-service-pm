@@ -55,6 +55,7 @@ Operational integration milestone: Google provider adapter และ container b
 - เพิ่มคู่มือทดลองบนโน้ตบุ๊กด้วย Docker Desktop ตั้งแต่ clone, สร้าง `.env`, bootstrap Admin, smoke check, test flow และ backup ก่อนย้าย server
 - เปลี่ยน Login เป็น User ID + Password พร้อม username migration และ local Admin เริ่มต้น `admin/admin` โดยยังเก็บ email เดิมไว้เพื่อความเข้ากันได้ของข้อมูลเก่า
 - เพิ่มตัวกรองรอบ PM ตามโรงพยาบาล เครื่อง รุ่น ปี และเดือน พร้อมไฟล์ Google Sheets workbook template ที่มีชีตเริ่มต้นและคำอธิบายภาษาไทย
+- เพิ่มหน้า Admin กรอกข้อมูลฐานข้อมูลหน้าเดียว พร้อมแก้ไขและปิดใช้งานโรงพยาบาล/อุปกรณ์ โดยไม่ลบประวัติถาวร
 
 ## Tests executed
 
@@ -85,6 +86,7 @@ Operational integration milestone: Google provider adapter และ container b
 - Webhook relay rehearsal ผ่าน valid/invalid HMAC, deduplication, rate limit, body limit และ backend recreate
 - Frontend Nginx re-resolve backend ผ่าน Docker DNS; HTTPS UI/API ยัง 200 หลัง backend container recreate
 - Google workbook template: สร้างไฟล์ XLSX ได้จริง ตรวจสอบชื่อชีตและหัวคอลัมน์ครบ รวมชีต `เริ่มที่นี่`
+- Backend compile และ frontend production build ผ่านหลังเพิ่ม API แก้ไข/ปิดใช้งานและ Admin-only database entry page
 
 ## ข้อจำกัดและงานคงเหลือ
 
