@@ -17,6 +17,7 @@ from app.domain.models import (
     AnnualPlan,
     Appointment,
     AppointmentRevision,
+    AuditLog,
     Equipment,
     Hospital,
     LineGroupMapping,
@@ -230,6 +231,35 @@ def deactivate_user(user_id: uuid.UUID, db: Db, admin: AdminUser) -> User:
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.delete("/users/{user_id}/permanent", response_model=UserView, tags=["users"])
+def delete_user_permanently(user_id: uuid.UUID, db: Db, admin: AdminUser) -> User:
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="ไม่พบผู้ใช้งาน")
+    if user.id == admin.id:
+        raise HTTPException(status_code=409, detail="ไม่สามารถลบบัญชีที่กำลังใช้งานอยู่ได้")
+    if user.role == Role.ADMIN:
+        active_admins = db.scalar(select(func.count()).select_from(User).where(User.role == Role.ADMIN, User.active.is_(True))) or 0
+        if user.active and active_admins <= 1:
+            raise HTTPException(status_code=409, detail="ต้องมี Admin ที่ใช้งานได้อย่างน้อย 1 คน")
+
+    dependencies = {
+        "ประวัติการตรวจข้อมูล": db.scalar(select(func.count()).select_from(MasterDataDraft).where(MasterDataDraft.reviewed_by_id == user.id)) or 0,
+        "แผน PM ที่อนุมัติ": db.scalar(select(func.count()).select_from(AnnualPlan).where(AnnualPlan.approved_by_id == user.id)) or 0,
+        "ประวัติการนัดหมาย": db.scalar(select(func.count()).select_from(AppointmentRevision).where(AppointmentRevision.approved_by_id == user.id)) or 0,
+        "ประวัติการแก้ไขระบบ": db.scalar(select(func.count()).select_from(AuditLog).where(AuditLog.actor_id == user.id)) or 0,
+    }
+    used_by = [f"{label} {count} รายการ" for label, count in dependencies.items() if count]
+    if used_by:
+        raise HTTPException(status_code=409, detail=f"ลบถาวรไม่ได้เพราะบัญชีนี้มีประวัติการใช้งาน: {', '.join(used_by)} ให้ใช้ปิดใช้งานแทน")
+
+    response = user
+    record_audit(db, actor=admin, action="USER_DELETED", entity_type="user", entity_id=user.id, old_values={"username": user.username, "display_name": user.display_name, "role": user.role.value})
+    db.delete(user)
+    db.commit()
+    return response
 
 
 @router.get("/hospitals", response_model=list[HospitalView], tags=["master-data"])
