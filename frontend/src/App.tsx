@@ -55,9 +55,10 @@ function LoginPage({ onSuccess }: { onSuccess: () => void }) {
 }
 
 function AdminOnly({ children }: { children: ReactNode }) {
-  const user = useQuery({ queryKey: ['current-user'], queryFn: () => api<{ role: string }>('/auth/me') })
+  const user = useQuery({ queryKey: ['current-user'], queryFn: () => api<{ role: string; display_name?: string }>('/auth/me') })
   if (user.isLoading) return <section className="page-heading"><div><h1>กำลังตรวจสอบสิทธิ์…</h1></div></section>
-  if (user.data?.role !== 'ADMIN') return <Navigate to="/" replace />
+  if (user.isError) return <section className="page-heading"><div><h1>ตรวจสอบสิทธิ์ไม่สำเร็จ</h1><p>Token หมดอายุหรือ Backend ที่เปิดอยู่ยังเป็นเวอร์ชันเก่า กรุณาออกจากระบบแล้วเข้าใหม่</p><button className="primary" onClick={() => { localStorage.removeItem('ba_access_token'); window.location.reload() }}>ออกจากระบบและเข้าใหม่</button></div></section>
+  if (user.data?.role?.toUpperCase() !== 'ADMIN') return <section className="page-heading"><div><h1>หน้านี้สำหรับ Admin เท่านั้น</h1><p>บัญชีนี้มีสิทธิ์ {user.data?.role || 'ไม่ทราบสิทธิ์'} จึงยังเปิดหน้ากรอกข้อมูลไม่ได้ ให้รันคำสั่ง `python -m app.cli ensure-admin` ใน Backend แล้วออกจากระบบเข้าใหม่</p></div></section>
   return children
 }
 
