@@ -32,7 +32,9 @@ def create_admin(
         normalized_username = username.strip().lower()
         if not normalized_username or any(char.isspace() for char in normalized_username):
             raise ValueError("User ID ต้องไม่ว่างและห้ามมีช่องว่าง")
-        normalized_email = f"{normalized_username}@local.invalid" if email is None else email.strip().lower()
+        # Keep a syntactically valid internal address for the legacy email column.
+        # Login uses username; this address is never used for authentication.
+        normalized_email = f"{normalized_username}@local.dev" if email is None else email.strip().lower()
     normalized_name = display_name.strip()
     if not normalized_name:
         raise ValueError("ชื่อที่แสดงจำเป็น")
