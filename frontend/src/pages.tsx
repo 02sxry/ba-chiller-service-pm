@@ -148,11 +148,17 @@ export function EquipmentPage() {
   })
   const archive = useMutation({
     mutationFn: (id: string) => api<Equipment>(`/equipment/${id}`, { method: 'DELETE' }),
-    onSuccess: () => client.invalidateQueries({ queryKey: ['equipment'] }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['equipment'] })
+      client.invalidateQueries({ queryKey: ['equipment-archive'] })
+      client.invalidateQueries({ queryKey: ['slots'] })
+      client.invalidateQueries({ queryKey: ['dashboard'] })
+      client.invalidateQueries({ queryKey: ['appointments'] })
+    },
   })
   const hospitalNames = new Map(hospitals.data?.map((hospital) => [hospital.id, hospital.hospital_name]))
   return <>
-    <section className="page-heading"><div><p className="eyebrow">MASTER DATA</p><h1>ฐานข้อมูลอุปกรณ์</h1><p>ระบบสร้างรหัสภายในให้อัตโนมัติ ผู้ใช้ไม่ต้องกรอกรหัส · อุปกรณ์ที่เก็บแล้วจะอยู่ใน Archive</p></div></section>
+    <section className="page-heading"><div><p className="eyebrow">MASTER DATA</p><h1>ฐานข้อมูลอุปกรณ์</h1><p>ระบบสร้างรหัสภายในให้อัตโนมัติ ผู้ใช้ไม่ต้องกรอกรหัส · อุปกรณ์ที่เก็บแล้วจะอยู่ใน Archive และจะปิดแผน PM ที่ยังใช้งานอยู่ตามไปด้วย</p></div></section>
     <section className="workspace-grid">
       <article className="panel">
         <div className="panel-header"><h2>รายการอุปกรณ์</h2><span className="count-badge">{equipment.data?.filter((item) => item.active).length ?? 0}</span></div>
@@ -222,7 +228,13 @@ export function DatabaseEntryPage() {
   })
   const deactivateEquipment = useMutation({
     mutationFn: (id: string) => api<Equipment>(`/equipment/${id}`, { method: 'DELETE' }),
-    onSuccess: () => client.invalidateQueries({ queryKey: ['equipment'] }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ['equipment'] })
+      client.invalidateQueries({ queryKey: ['equipment-archive'] })
+      client.invalidateQueries({ queryKey: ['slots'] })
+      client.invalidateQueries({ queryKey: ['dashboard'] })
+      client.invalidateQueries({ queryKey: ['appointments'] })
+    },
   })
   const previewPlan = useMutation({
     mutationFn: () => api<{ display_months_th: string[] }>('/plans/preview', { method: 'POST', body: JSON.stringify({ plan_year: planForm.year, annual_frequency: planForm.frequency, planning_mode: 'AUTOMATIC', start_month: planForm.start_month }) }),
