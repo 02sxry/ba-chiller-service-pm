@@ -13,7 +13,7 @@ const pages: Record<string, string> = {
 }
 
 function LoginPage({ onSuccess }: { onSuccess: () => void }) {
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -23,7 +23,7 @@ function LoginPage({ onSuccess }: { onSuccess: () => void }) {
     setError('')
     setSubmitting(true)
     try {
-      await login(email, password)
+      await login(username, password)
       onSuccess()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'เข้าสู่ระบบไม่สำเร็จ')
@@ -42,11 +42,11 @@ function LoginPage({ onSuccess }: { onSuccess: () => void }) {
       <section className="login-card-wrap">
         <form className="login-card" onSubmit={submit}>
           <div><p className="eyebrow">SECURE ACCESS</p><h2>เข้าสู่ระบบ</h2><p>ใช้บัญชีที่ผู้ดูแลระบบสร้างให้</p></div>
-          <label>อีเมล<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" required /></label>
+          <label>User ID<input type="text" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required /></label>
           <label>รหัสผ่าน<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>
           {error && <div className="login-error">{error}</div>}
           <button type="submit" disabled={submitting}>{submitting ? 'กำลังตรวจสอบ…' : 'เข้าสู่ระบบ'}</button>
-          <small>ไม่มีรหัสผ่านเริ่มต้น ผู้ดูแลต้อง bootstrap บัญชีแรกผ่าน server</small>
+          <small>ผู้ดูแลเริ่มต้นใช้ User ID admin</small>
         </form>
       </section>
     </main>

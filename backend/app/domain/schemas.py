@@ -12,7 +12,7 @@ class ORMModel(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    username: str = Field(min_length=1, max_length=100)
     password: str
 
 
@@ -23,6 +23,7 @@ class TokenResponse(BaseModel):
 
 class UserView(ORMModel):
     id: uuid.UUID
+    username: str | None
     email: EmailStr
     display_name: str
     role: Role

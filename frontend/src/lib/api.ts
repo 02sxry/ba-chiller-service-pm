@@ -29,10 +29,10 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   return response.json() as Promise<T>
 }
 
-export async function login(email: string, password: string) {
+export async function login(username: string, password: string) {
   const result = await api<{ access_token: string }>('/auth/token', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ username, password }),
   })
   localStorage.setItem('ba_access_token', result.access_token)
 }

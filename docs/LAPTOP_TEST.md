@@ -91,7 +91,7 @@ docker compose --env-file .env -f deploy/local/compose.yaml up -d
 docker compose --env-file .env -f deploy/local/compose.yaml exec backend python -m app.cli bootstrap-admin
 ```
 
-สร้าง email และรหัสผ่านทดสอบของคุณเอง รหัสผ่านควรยาวอย่างน้อย 12 ตัวอักษร อย่าใช้รหัสผ่านของเครื่องจริงหรือส่งรหัสผ่านในแชต
+สร้าง User ID ของ Admin โดยค่าเริ่มต้นกด Enter เพื่อใช้ `admin` และใช้รหัสผ่าน `admin` ได้เฉพาะ local development เท่านั้น อย่าใช้ชุดนี้บน local server จริงหรือ production
 
 ## 4. เปิดและตรวจระบบ
 
@@ -258,3 +258,12 @@ python -m app.worker
 
 ```powershell
 cd ba-chiller-service-pm\backend
+.\.venv\Scripts\Activate.ps1
+python -m app.scheduler
+```
+
+สำหรับทดสอบหน้าเว็บและ API เบื้องต้น เปิดแค่ Backend กับ Frontend ก็พอ ส่วน Worker/Scheduler จำเป็นเมื่อทดสอบ outbox, notification และงานตามเวลา
+
+## เมื่อนำขึ้น local server จริง
+
+คัดลอก repository และสร้าง `.env` ใหม่บน server แยกจากโน้ตบุ๊ก ตั้ง `APP_ENV=production`, secret ใหม่ที่ยาวและสุ่ม, database password ใหม่ และ `FRONTEND_ORIGIN` ให้ตรงกับชื่อภายในองค์กร เปิด notification/integration จริงหลังทดสอบ credential และ approval flow ครบแล้วเท่านั้น

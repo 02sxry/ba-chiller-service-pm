@@ -89,3 +89,5 @@ Docker build ครั้งแรกใน execution environment ติด prox
 
 คู่มือทดลองบนโน้ตบุ๊กถูกเพิ่มใน `docs/LAPTOP_TEST.md` พร้อมคำสั่ง Windows PowerShell และ macOS/Linux
 
+การเปลี่ยน Login เป็น User ID/Password ผ่าน frontend build และ Python compile check แล้ว; backend pytest ใน execution environment รอบนี้เชื่อม PostgreSQL test port `55432` ไม่ได้ จึงยังไม่สรุปผล pytest รอบนี้เป็นผ่าน
+
