@@ -140,13 +140,54 @@ export function EquipmentPage() {
   const client = useQueryClient()
   const hospitals = useQuery({ queryKey: ['hospitals'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
   const equipment = useQuery({ queryKey: ['equipment'], queryFn: () => api<Equipment[]>('/equipment') })
+  const me = useQuery({ queryKey: ['current-user'], queryFn: () => api<{ role: string }>('/auth/me') })
   const [form, setForm] = useState({ hospital_id: '', equipment_name: '', model: '', serial_number: '', room_location: '' })
   const create = useMutation({
     mutationFn: () => api('/equipment', { method: 'POST', body: JSON.stringify({ ...form, model: form.model || null, serial_number: form.serial_number || null, room_location: form.room_location || null }) }),
     onSuccess: () => { setForm({ hospital_id: '', equipment_name: '', model: '', serial_number: '', room_location: '' }); client.invalidateQueries({ queryKey: ['equipment'] }) },
   })
+  const archive = useMutation({
+    mutationFn: (id: string) => api<Equipment>(`/equipment/${id}`, { method: 'DELETE' }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['equipment'] }),
+  })
   const hospitalNames = new Map(hospitals.data?.map((hospital) => [hospital.id, hospital.hospital_name]))
-  return <><section className="page-heading"><div><p className="eyebrow">MASTER DATA</p><h1>ฐานข้อมูลอุปกรณ์</h1><p>ระบบสร้างรหัสภายในให้อัตโนมัติ ผู้ใช้ไม่ต้องกรอกรหัส</p></div></section><section className="workspace-grid"><article className="panel"><div className="panel-header"><h2>รายการอุปกรณ์</h2><span className="count-badge">{equipment.data?.length ?? 0}</span></div><div className="data-list">{equipment.data?.map((item) => <div key={item.id}><p><strong>{item.equipment_name}</strong><small>{hospitalNames.get(item.hospital_id) ?? 'ไม่พบโรงพยาบาล'}{item.model ? ` · ${item.model}` : ''}</small></p><i className={item.active ? 'active-state' : ''}>{item.active ? 'ใช้งาน' : 'ปิด'}</i></div>)}</div></article><form className="panel form-panel" onSubmit={(event) => { event.preventDefault(); create.mutate() }}><div><span className="panel-kicker">ADD EQUIPMENT</span><h2>เพิ่มอุปกรณ์</h2></div><label>โรงพยาบาล<select value={form.hospital_id} onChange={(event) => setForm({ ...form, hospital_id: event.target.value })} required><option value="">เลือกโรงพยาบาล</option>{hospitals.data?.map((hospital) => <option value={hospital.id} key={hospital.id}>{hospital.hospital_name}</option>)}</select></label><label>ชื่ออุปกรณ์<input value={form.equipment_name} onChange={(event) => setForm({ ...form, equipment_name: event.target.value })} required /></label><label>รุ่น<input value={form.model} onChange={(event) => setForm({ ...form, model: event.target.value })} /></label><label>Serial number<input value={form.serial_number} onChange={(event) => setForm({ ...form, serial_number: event.target.value })} /></label>{create.error && <div className="login-error">{create.error.message}</div>}<button className="primary" disabled={create.isPending}>บันทึกอุปกรณ์</button></form></section></>
+  return <>
+    <section className="page-heading"><div><p className="eyebrow">MASTER DATA</p><h1>ฐานข้อมูลอุปกรณ์</h1><p>ระบบสร้างรหัสภายในให้อัตโนมัติ ผู้ใช้ไม่ต้องกรอกรหัส · อุปกรณ์ที่เก็บแล้วจะอยู่ใน Archive</p></div></section>
+    <section className="workspace-grid">
+      <article className="panel">
+        <div className="panel-header"><h2>รายการอุปกรณ์</h2><span className="count-badge">{equipment.data?.filter((item) => item.active).length ?? 0}</span></div>
+        <div className="data-list">{equipment.data?.filter((item) => item.active).map((item) => <div key={item.id}><p><strong>{item.equipment_name}</strong><small>{hospitalNames.get(item.hospital_id) ?? 'ไม่พบโรงพยาบาล'}{item.model ? ` · ${item.model}` : ''}</small></p><i className="active-state">ใช้งาน</i>{me.data?.role === 'ADMIN' && <button className="text-button" type="button" onClick={() => window.confirm(`เก็บ ${item.equipment_name} เข้า Archive ใช่หรือไม่`) && archive.mutate(item.id)}>เก็บเข้า Archive</button>}</div>)}</div>
+      </article>
+      <form className="panel form-panel" onSubmit={(event) => { event.preventDefault(); create.mutate() }}>
+        <div><span className="panel-kicker">ADD EQUIPMENT</span><h2>เพิ่มอุปกรณ์</h2></div>
+        <label>โรงพยาบาล<select value={form.hospital_id} onChange={(event) => setForm({ ...form, hospital_id: event.target.value })} required><option value="">เลือกโรงพยาบาล</option>{hospitals.data?.map((hospital) => <option value={hospital.id} key={hospital.id}>{hospital.hospital_name}</option>)}</select></label>
+        <label>ชื่ออุปกรณ์<input value={form.equipment_name} onChange={(event) => setForm({ ...form, equipment_name: event.target.value })} required /></label>
+        <label>รุ่น<input value={form.model} onChange={(event) => setForm({ ...form, model: event.target.value })} /></label>
+        <label>Serial number<input value={form.serial_number} onChange={(event) => setForm({ ...form, serial_number: event.target.value })} /></label>
+        {(create.error || archive.error) && <div className="login-error">{(create.error || archive.error)?.message}</div>}
+        <button className="primary" disabled={create.isPending}>บันทึกอุปกรณ์</button>
+      </form>
+    </section>
+  </>
+}
+
+export function EquipmentArchivePage() {
+  const client = useQueryClient()
+  const hospitals = useQuery({ queryKey: ['hospitals'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
+  const archived = useQuery({ queryKey: ['equipment-archive'], queryFn: () => api<Equipment[]>('/equipment/archive') })
+  const remove = useMutation({
+    mutationFn: (id: string) => api<Equipment>(`/equipment/${id}/permanent`, { method: 'DELETE' }),
+    onSuccess: () => { client.invalidateQueries({ queryKey: ['equipment-archive'] }); client.invalidateQueries({ queryKey: ['equipment'] }) },
+  })
+  const hospitalNames = new Map(hospitals.data?.map((hospital) => [hospital.id, hospital.hospital_name]))
+  return <>
+    <section className="page-heading"><div><p className="eyebrow">EQUIPMENT ARCHIVE</p><h1>Archive อุปกรณ์</h1><p>อุปกรณ์ที่เก็บจากหน้าฐานข้อมูลอุปกรณ์ การลบถาวรทำได้เฉพาะหน้านี้และเฉพาะ Admin</p></div></section>
+    <article className="panel">
+      <div className="panel-header"><h2>รายการใน Archive</h2><span className="count-badge">{archived.data?.length ?? 0}</span></div>
+      {remove.error && <div className="login-error">{remove.error.message}</div>}
+      <div className="data-list">{archived.data?.map((item) => <div key={item.id}><p><strong>{item.equipment_name}</strong><small>{item.equipment_code} · {hospitalNames.get(item.hospital_id) ?? 'ไม่พบโรงพยาบาล'}{item.model ? ` · รุ่น ${item.model}` : ''}{item.serial_number ? ` · Serial ${item.serial_number}` : ''}</small></p><i>Archived</i><button className="text-button" type="button" onClick={() => window.confirm(`ลบ ${item.equipment_name} ถาวรใช่หรือไม่\n\nการลบนี้ย้อนกลับไม่ได้`) && remove.mutate(item.id)}>ลบถาวร</button></div>)}{archived.data?.length === 0 && <div className="empty-state">ยังไม่มีอุปกรณ์ใน Archive</div>}</div>
+    </article>
+  </>
 }
 
 export function DatabaseEntryPage() {
