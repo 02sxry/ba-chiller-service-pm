@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.domain.enums import AppointmentStatus, ChangeSource, DraftStatus, DraftType, PlanningMode, Role, SyncStatus
 
@@ -37,7 +37,10 @@ class TokenResponse(BaseModel):
 class UserView(ORMModel):
     id: uuid.UUID
     username: str | None
-    email: EmailStr
+    # Email remains in the response for backwards compatibility. It is not the
+    # login identifier, and older local records may contain an internal address
+    # such as @local.invalid that EmailStr rejects on response serialization.
+    email: str
     display_name: str
     role: Role
     active: bool
