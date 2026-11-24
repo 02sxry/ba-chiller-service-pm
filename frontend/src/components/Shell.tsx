@@ -8,6 +8,7 @@ import { NavLink } from 'react-router-dom'
 
 const navigation = [
   ['ภาพรวม', '/', Gauge],
+  ['กรอกข้อมูลฐานข้อมูล', '/data-entry', Database],
   ['โรงพยาบาล', '/hospitals', Hospital],
   ['ฐานข้อมูลอุปกรณ์', '/equipment', Database],
   ['วางแผน PM รายปี', '/planner', CalendarDays],
