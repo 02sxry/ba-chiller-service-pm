@@ -1,9 +1,12 @@
+import uuid
+
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from app.core.db import get_db
 from app.core.security import create_access_token
-from app.domain.enums import Role
-from app.domain.models import Hospital, User
+from app.domain.enums import AppointmentStatus, PlanningMode, Role
+from app.domain.models import AnnualPlan, Appointment, Hospital, NextYearPlanDraft, PMSlot, User
 from app.main import app
 
 
@@ -120,5 +123,68 @@ def test_equipment_archive_then_permanent_delete(db) -> None:
         deleted = client.delete(f"/api/v1/equipment/{equipment_id}/permanent", headers=headers)
         assert deleted.status_code == 200
         assert client.get("/api/v1/equipment/archive", headers=headers).json() == []
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_archiving_equipment_closes_linked_pm_data(db) -> None:
+    admin = make_user(db, "admin-cascade@example.com", Role.ADMIN)
+    hospital = Hospital(hospital_code="CAS-H1", hospital_name="โรงพยาบาล Cascade")
+    db.add(hospital)
+    db.flush()
+    client = client_for(db)
+    headers = {"Authorization": f"Bearer {create_access_token(admin)}"}
+    try:
+        created = client.post(
+            "/api/v1/equipment",
+            headers=headers,
+            json={"hospital_id": str(hospital.id), "equipment_code": "CAS-E1", "equipment_name": "เครื่อง Cascade"},
+        )
+        assert created.status_code == 201
+        equipment_id = uuid.UUID(created.json()["id"])
+
+        plan_response = client.post(
+            "/api/v1/plans/approve",
+            headers=headers,
+            json={
+                "equipment_id": str(equipment_id),
+                "plan_year": 2035,
+                "annual_frequency": 2,
+                "planning_mode": PlanningMode.AUTOMATIC.value,
+                "start_month": 1,
+            },
+        )
+        assert plan_response.status_code == 201
+        plan_id = uuid.UUID(plan_response.json()["id"])
+        slot = db.scalar(select(PMSlot).where(PMSlot.yearly_plan_id == plan_id))
+        assert slot is not None
+        db.add(Appointment(
+            pm_slot_id=slot.id,
+            hospital_id=hospital.id,
+            equipment_id=equipment_id,
+            status=AppointmentStatus.PENDING_CONFIRMATION,
+        ))
+        db.flush()
+
+        draft_response = client.post(
+            "/api/v1/next-year-drafts/generate?source_year=2035&target_year=2036",
+            headers=headers,
+        )
+        assert draft_response.status_code == 200
+
+        archived = client.delete(f"/api/v1/equipment/{equipment_id}", headers=headers)
+        assert archived.status_code == 200
+        db.expire_all()
+
+        plan = db.get(AnnualPlan, plan_id)
+        assert plan is not None and plan.active is False
+        assert db.scalars(
+            select(PMSlot).where(PMSlot.equipment_id == equipment_id, PMSlot.active.is_(True))
+        ).all() == []
+        draft = db.scalar(select(NextYearPlanDraft).where(NextYearPlanDraft.equipment_id == equipment_id))
+        assert draft is not None and draft.excluded is True
+        appointment = db.scalar(select(Appointment).where(Appointment.equipment_id == equipment_id))
+        assert appointment is not None and appointment.status == AppointmentStatus.CANCELLED
+        assert client.get("/api/v1/slots?plan_year=2035", headers=headers).json() == []
     finally:
         app.dependency_overrides.clear()
