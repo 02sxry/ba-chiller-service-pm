@@ -108,12 +108,11 @@ Db = Annotated[Session, Depends(get_db)]
 
 def _normalize_chiller_serial(data: dict[str, object]) -> None:
     equipment_name = str(data.get("equipment_name") or "")
-    model = str(data.get("model") or "")
     serial_number = data.get("serial_number")
     if not isinstance(serial_number, str) or not serial_number.strip():
         return
     serial_number = re.sub(r"-CH$", "", serial_number.strip(), flags=re.IGNORECASE)
-    if "chiller" in f"{equipment_name} {model}".casefold():
+    if "chiller" in equipment_name.casefold():
         serial_number = f"{serial_number}-CH"
     data["serial_number"] = serial_number
 
