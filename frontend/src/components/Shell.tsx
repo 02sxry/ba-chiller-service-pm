@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react'
 import {
-  Activity, Bell, Building2, CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck,
+  Activity, Archive, Bell, Building2, CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck,
   Database, FileClock, FileSpreadsheet, Gauge, HardDrive, History, Hospital,
   LogOut, Menu, Settings, ShieldCheck, Stethoscope, Users, Wrench, X,
 } from 'lucide-react'
@@ -11,6 +11,7 @@ const navigation = [
   ['กรอกข้อมูลฐานข้อมูล', '/data-entry', Database],
   ['โรงพยาบาล', '/hospitals', Hospital],
   ['ฐานข้อมูลอุปกรณ์', '/equipment', Database],
+  ['Archive อุปกรณ์', '/equipment-archive', Archive],
   ['วางแผน PM รายปี', '/planner', CalendarDays],
   ['รอบ PM', '/slots', FileClock],
   ['ตารางจากช่าง', '/intakes', Wrench],
