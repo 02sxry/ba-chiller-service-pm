@@ -52,6 +52,7 @@ class VersionMixin:
 
 class User(IdMixin, TimestampMixin, Base):
     __tablename__ = "users"
+    username: Mapped[str | None] = mapped_column(String(100), unique=True, index=True)
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     display_name: Mapped[str] = mapped_column(String(255))

@@ -53,6 +53,7 @@ Operational integration milestone: Google provider adapter และ container b
 - Deterministic LINE Q&A รองรับเมนูช่วยเหลือและดูนัดหมายของ hospital group ที่ authorize แล้ว
 - LINE Q&A ใช้ notification outbox เดิม, มี idempotency ต่อ webhook event และไม่ส่งจริงเมื่อ kill switch เปิด
 - เพิ่มคู่มือทดลองบนโน้ตบุ๊กด้วย Docker Desktop ตั้งแต่ clone, สร้าง `.env`, bootstrap Admin, smoke check, test flow และ backup ก่อนย้าย server
+- เปลี่ยน Login เป็น User ID + Password พร้อม username migration และ local Admin เริ่มต้น `admin/admin` โดยยังเก็บ email เดิมไว้เพื่อความเข้ากันได้ของข้อมูลเก่า
 
 ## Tests executed
 

@@ -91,7 +91,7 @@ docker compose --env-file .env -f deploy/local/compose.yaml up -d
 docker compose --env-file .env -f deploy/local/compose.yaml exec backend python -m app.cli bootstrap-admin
 ```
 
-สร้าง email และรหัสผ่านทดสอบของคุณเอง รหัสผ่านควรยาวอย่างน้อย 12 ตัวอักษร อย่าใช้รหัสผ่านของเครื่องจริงหรือส่งรหัสผ่านในแชต
+สร้าง User ID ของ Admin โดยค่าเริ่มต้นกด Enter เพื่อใช้ `admin` และใช้รหัสผ่าน `admin` ได้เฉพาะ local development เท่านั้น อย่าใช้ชุดนี้บน local server จริงหรือ production
 
 ## 4. เปิดและตรวจระบบ
 

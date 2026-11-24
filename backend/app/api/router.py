@@ -5,7 +5,7 @@ from typing import Annotated
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Request, UploadFile
-from sqlalchemy import func, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -123,9 +123,10 @@ def health(db: Db) -> HealthResponse:
 
 @router.post("/auth/token", response_model=TokenResponse, tags=["auth"])
 def login(request: LoginRequest, db: Db) -> TokenResponse:
-    user = db.scalar(select(User).where(User.email == request.email, User.active.is_(True)))
+    username = request.username.strip().lower()
+    user = db.scalar(select(User).where(or_(User.username == username, User.email == username), User.active.is_(True)))
     if not user or not verify_password(request.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="อีเมลหรือรหัสผ่านไม่ถูกต้อง")
+        raise HTTPException(status_code=401, detail="User ID หรือรหัสผ่านไม่ถูกต้อง")
     return TokenResponse(access_token=create_access_token(user))
 
 

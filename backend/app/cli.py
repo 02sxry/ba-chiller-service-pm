@@ -5,6 +5,7 @@ from email_validator import EmailNotValidError, validate_email
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.core.security import hash_password
 from app.domain.enums import Role
@@ -14,22 +15,34 @@ from app.domain.models import User
 def create_admin(
     db: Session,
     *,
-    email: str,
+    username: str | None = None,
+    email: str | None = None,
     display_name: str,
     password: str,
 ) -> User:
-    try:
-        normalized_email = validate_email(email.strip(), check_deliverability=False).normalized.lower()
-    except EmailNotValidError as exc:
-        raise ValueError("อีเมล Admin ไม่ถูกต้อง") from exc
+    if username is None:
+        if email is None:
+            raise ValueError("User ID จำเป็น")
+        try:
+            normalized_username = validate_email(email.strip(), check_deliverability=False).normalized.lower()
+        except EmailNotValidError as exc:
+            raise ValueError("อีเมล Admin ไม่ถูกต้อง") from exc
+        normalized_email = normalized_username
+    else:
+        normalized_username = username.strip().lower()
+        if not normalized_username or any(char.isspace() for char in normalized_username):
+            raise ValueError("User ID ต้องไม่ว่างและห้ามมีช่องว่าง")
+        normalized_email = f"{normalized_username}@local.invalid" if email is None else email.strip().lower()
     normalized_name = display_name.strip()
     if not normalized_name:
         raise ValueError("ชื่อที่แสดงจำเป็น")
-    if len(password) < 12:
+    local_default_admin = normalized_username == "admin" and password == "admin" and get_settings().app_env != "production"
+    if len(password) < 12 and not local_default_admin:
         raise ValueError("รหัสผ่านต้องมีอย่างน้อย 12 ตัวอักษร")
-    if db.scalar(select(User).where(User.email == normalized_email)):
-        raise ValueError("มีผู้ใช้อีเมลนี้แล้ว")
+    if db.scalar(select(User).where((User.username == normalized_username) | (User.email == normalized_email))):
+        raise ValueError("มีอีเมลนี้แล้ว" if username is None else "มี User ID นี้แล้ว")
     user = User(
+        username=normalized_username,
         email=normalized_email,
         display_name=normalized_name,
         password_hash=hash_password(password),
@@ -41,12 +54,12 @@ def create_admin(
 
 
 def bootstrap_admin_interactive() -> None:
-    email = input("อีเมล Admin: ")
+    username = input("User ID Admin [admin]: ").strip() or "admin"
     display_name = input("ชื่อที่แสดง: ")
-    password = getpass.getpass("รหัสผ่าน (อย่างน้อย 12 ตัวอักษร): ")
+    password = getpass.getpass("รหัสผ่าน: ")
     try:
         with SessionLocal.begin() as db:
-            create_admin(db, email=email, display_name=display_name, password=password)
+            create_admin(db, username=username, display_name=display_name, password=password)
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
     print("สร้าง Admin สำเร็จ")

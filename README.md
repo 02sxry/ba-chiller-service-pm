@@ -26,10 +26,10 @@ npm run dev
 
 API docs อยู่ที่ `http://localhost:8000/api/docs` และเว็บอยู่ที่ `http://localhost:5173`
 
-สร้าง Admin คนแรกหลัง migration
+สร้าง Admin คนแรกหลัง migration โดยใช้ User ID `admin` และรหัสผ่าน `admin` ได้เฉพาะ local development
 
 ```bash
-python scripts/bootstrap_admin.py
+python -m app.cli bootstrap-admin
 ```
 
 ถ้ารันด้วย production Compose ให้สร้างจาก backend container เพื่อไม่ต้องเปิดพอร์ต PostgreSQL:
