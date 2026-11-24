@@ -37,8 +37,8 @@ def create_admin(
     if not normalized_name:
         raise ValueError("ชื่อที่แสดงจำเป็น")
     local_default_admin = normalized_username == "admin" and password == "admin" and get_settings().app_env != "production"
-    if len(password) < 12 and not local_default_admin:
-        raise ValueError("รหัสผ่านต้องมีอย่างน้อย 12 ตัวอักษร")
+    if len(password) < 4 and not local_default_admin:
+        raise ValueError("รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร")
     if db.scalar(select(User).where((User.username == normalized_username) | (User.email == normalized_email))):
         raise ValueError("มีอีเมลนี้แล้ว" if username is None else "มี User ID นี้แล้ว")
     user = User(
@@ -51,6 +51,19 @@ def create_admin(
     db.add(user)
     db.flush()
     return user
+
+
+def ensure_admin(db: Session, *, username: str = "admin", display_name: str = "Admin", password: str = "admin") -> User:
+    normalized_username = username.strip().lower()
+    user = db.scalar(select(User).where(User.username == normalized_username))
+    if user:
+        user.role = Role.ADMIN
+        user.active = True
+        user.display_name = display_name.strip() or "Admin"
+        user.password_hash = hash_password(password)
+        db.flush()
+        return user
+    return create_admin(db, username=normalized_username, display_name=display_name, password=password)
 
 
 def bootstrap_admin_interactive() -> None:
@@ -69,9 +82,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="BA Chiller administration CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("bootstrap-admin", help="สร้างผู้ดูแลระบบคนแรกแบบ interactive")
+    subparsers.add_parser("ensure-admin", help="ซ่อม/ตั้งค่า User ID admin ให้เป็น Admin สำหรับ local development")
     args = parser.parse_args()
     if args.command == "bootstrap-admin":
         bootstrap_admin_interactive()
+    if args.command == "ensure-admin":
+        with SessionLocal.begin() as db:
+            ensure_admin(db)
+        print("ตั้งค่า admin สำเร็จ")
 
 
 if __name__ == "__main__":

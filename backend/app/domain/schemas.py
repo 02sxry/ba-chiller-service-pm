@@ -19,7 +19,7 @@ class LoginRequest(BaseModel):
 class UserCreateRequest(BaseModel):
     username: str = Field(min_length=1, max_length=100)
     display_name: str = Field(min_length=1, max_length=255)
-    password: str = Field(min_length=12, max_length=255)
+    password: str = Field(min_length=4, max_length=255)
     role: Role = Role.VIEWER
 
 

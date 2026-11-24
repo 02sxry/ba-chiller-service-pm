@@ -95,3 +95,5 @@ Docker build ครั้งแรกใน execution environment ติด prox
 
 หลังเพิ่มหน้า Admin กรอกข้อมูลฐานข้อมูล: `python -m compileall -q backend/app`, `git diff --check` และ `npm run build` ผ่าน; ยังไม่ได้รัน integration test ที่ต้องใช้ PostgreSQL จริงในรอบนี้
 
+หลังปรับ local password policy และ Admin repair command: backend compile, `git diff --check` และ frontend build ผ่าน; ยังไม่ได้ทดสอบสิทธิ์กับฐานข้อมูลของผู้ใช้โดยตรง
+
