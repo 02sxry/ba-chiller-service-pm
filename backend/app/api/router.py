@@ -22,6 +22,7 @@ from app.domain.models import (
     Hospital,
     LineGroupMapping,
     MasterDataDraft,
+    NextYearPlanDraft,
     NotificationJob,
     PMSlot,
     ScheduleIntake,
@@ -419,6 +420,12 @@ def list_equipment(db: Db, _: CurrentUser, hospital_id: uuid.UUID | None = None)
     return list(db.scalars(query).all())
 
 
+@router.get("/equipment/archive", response_model=list[EquipmentView], tags=["master-data"])
+def list_equipment_archive(db: Db, _: AdminUser) -> list[Equipment]:
+    query = select(Equipment).where(Equipment.active.is_(False)).order_by(Equipment.updated_at.desc())
+    return list(db.scalars(query).all())
+
+
 @router.post("/equipment", response_model=EquipmentView, status_code=201, tags=["master-data"])
 def create_equipment(request: EquipmentCreate, db: Db, admin: AdminUser) -> Equipment:
     if not db.get(Hospital, request.hospital_id):
@@ -473,6 +480,38 @@ def deactivate_equipment(equipment_id: uuid.UUID, db: Db, admin: AdminUser) -> E
     db.commit()
     db.refresh(equipment)
     return equipment
+
+
+@router.delete("/equipment/{equipment_id}/permanent", response_model=EquipmentView, tags=["master-data"])
+def delete_equipment_permanently(equipment_id: uuid.UUID, db: Db, admin: AdminUser) -> Equipment:
+    equipment = db.get(Equipment, equipment_id)
+    if not equipment:
+        raise HTTPException(status_code=404, detail="ไม่พบอุปกรณ์")
+    if equipment.active:
+        raise HTTPException(status_code=409, detail="ต้องเก็บอุปกรณ์เข้า Archive ก่อนจึงจะลบถาวรได้")
+
+    dependencies = {
+        "แผน PM": db.scalar(select(func.count()).select_from(AnnualPlan).where(AnnualPlan.equipment_id == equipment.id)) or 0,
+        "แผนปีถัดไป": db.scalar(select(func.count()).select_from(NextYearPlanDraft).where(NextYearPlanDraft.equipment_id == equipment.id)) or 0,
+        "รอบ PM": db.scalar(select(func.count()).select_from(PMSlot).where(PMSlot.equipment_id == equipment.id)) or 0,
+        "นัดหมาย": db.scalar(select(func.count()).select_from(Appointment).where(Appointment.equipment_id == equipment.id)) or 0,
+    }
+    used_by = [f"{label} {count} รายการ" for label, count in dependencies.items() if count]
+    if used_by:
+        raise HTTPException(status_code=409, detail=f"ลบถาวรไม่ได้เพราะมีข้อมูลที่อ้างถึงอุปกรณ์นี้: {', '.join(used_by)} ให้เก็บ Archive ไว้แทน")
+
+    response = equipment
+    record_audit(
+        db,
+        actor=admin,
+        action="EQUIPMENT_DELETED",
+        entity_type="equipment",
+        entity_id=equipment.id,
+        old_values={"equipment_code": equipment.equipment_code, "equipment_name": equipment.equipment_name},
+    )
+    db.delete(equipment)
+    db.commit()
+    return response
 
 
 @router.get("/line-groups", response_model=list[LineGroupView], tags=["line"])
