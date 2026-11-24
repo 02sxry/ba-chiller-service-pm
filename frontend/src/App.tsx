@@ -3,10 +3,10 @@ import { useQuery } from '@tanstack/react-query'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Shell } from './components/Shell'
 import { api, login } from './lib/api'
-import { AppointmentsPage, ApprovalQueuePage, Dashboard, DatabaseEntryPage, DraftsPage, EquipmentPage, GoogleSyncPage, HospitalsPage, LineGroupsPage, Placeholder, PlannerPage, ReportsPage, SettingsPage, SlotsPage, UsersPage } from './pages'
+import { AppointmentsPage, ApprovalQueuePage, Dashboard, DatabaseEntryPage, DraftsPage, EquipmentArchivePage, EquipmentPage, GoogleSyncPage, HospitalsPage, LineGroupsPage, Placeholder, PlannerPage, ReportsPage, SettingsPage, SlotsPage, UsersPage } from './pages'
 
 const pages: Record<string, string> = {
-  'data-entry': 'กรอกข้อมูลฐานข้อมูล', hospitals: 'โรงพยาบาล', equipment: 'ฐานข้อมูลอุปกรณ์', planner: 'วางแผน PM รายปี', slots: 'รอบ PM', users: 'ผู้ใช้งานและสิทธิ์',
+  'data-entry': 'กรอกข้อมูลฐานข้อมูล', hospitals: 'โรงพยาบาล', equipment: 'ฐานข้อมูลอุปกรณ์', 'equipment-archive': 'Archive อุปกรณ์', planner: 'วางแผน PM รายปี', slots: 'รอบ PM', users: 'ผู้ใช้งานและสิทธิ์',
   intakes: 'ตารางจากช่าง', drafts: 'ตรวจข้อมูลร่าง', approvals: 'คิวอนุมัติ', calendar: 'ปฏิทินนัดหมาย',
   confirmations: 'การยืนยันนัด', reschedules: 'คำขอเลื่อนนัด', history: 'ประวัติการแก้ไข',
   'next-year': 'แผนปีถัดไป', sheets: 'Google Sheets', drive: 'Google Drive', 'line-groups': 'LINE Groups',
@@ -72,6 +72,7 @@ export default function App() {
         <Route path="/data-entry" element={<AdminOnly><DatabaseEntryPage /></AdminOnly>} />
         <Route path="/hospitals" element={<HospitalsPage />} />
         <Route path="/equipment" element={<EquipmentPage />} />
+        <Route path="/equipment-archive" element={<AdminOnly><EquipmentArchivePage /></AdminOnly>} />
         <Route path="/planner" element={<PlannerPage />} />
         <Route path="/slots" element={<SlotsPage />} />
         <Route path="/users" element={<AdminOnly><UsersPage /></AdminOnly>} />
@@ -86,7 +87,7 @@ export default function App() {
         <Route path="/line-groups" element={<LineGroupsPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        {Object.entries(pages).filter(([path]) => !['data-entry', 'hospitals', 'equipment', 'planner', 'slots', 'users', 'drafts', 'intakes', 'approvals', 'calendar', 'confirmations', 'reschedules', 'history', 'sheets', 'line-groups', 'reports', 'settings'].includes(path)).map(([path, title]) => <Route key={path} path={`/${path}`} element={<Placeholder title={title} />} />)}
+        {Object.entries(pages).filter(([path]) => !['data-entry', 'hospitals', 'equipment', 'equipment-archive', 'planner', 'slots', 'users', 'drafts', 'intakes', 'approvals', 'calendar', 'confirmations', 'reschedules', 'history', 'sheets', 'line-groups', 'reports', 'settings'].includes(path)).map(([path, title]) => <Route key={path} path={`/${path}`} element={<Placeholder title={title} />} />)}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Shell>
