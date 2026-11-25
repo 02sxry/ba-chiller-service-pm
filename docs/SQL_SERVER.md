@@ -61,7 +61,7 @@ DATABASE_URL=mssql+pyodbc://BA_PMnotification_app:รหัสผ่านที
 DATABASE_URL=mssql+pyodbc://@SQLSERVER_HOST/BA_PMnotification?driver=ODBC+Driver+18+for+SQL+Server&trusted_connection=yes&TrustServerCertificate=yes
 ```
 
-`SQLSERVER_HOST` อาจเป็น `SERVERNAME`, `SERVERNAME\\INSTANCE` หรือ `SERVERNAME,1433` ตามค่าที่องค์กรกำหนด
+`SQLSERVER_HOST` อาจเป็น `SERVERNAME`, `SERVERNAME\INSTANCE` หรือ `SERVERNAME,1433` ตามค่าที่องค์กรกำหนด ในไฟล์ `.env` ให้ใช้ backslash จริง เช่น `SAL-007LT\SQLEXPRESS` ไม่ต้องเขียนเป็น `%5C`
 
 ## 4. สร้างตารางของระบบ
 
