@@ -12,8 +12,8 @@
 cd backend
 # ตั้ง DATABASE_URL ใน .env ให้ชี้ SQL Server/BA_PMnotification ก่อนรันคำสั่งต่อไปนี้
 uv sync --frozen
-alembic upgrade head
-uvicorn app.main:app --reload
+python -m alembic upgrade head
+python -m uvicorn app.main:app --reload
 ```
 
 เปิดอีก terminal
@@ -23,14 +23,6 @@ cd frontend
 npm install
 npm run dev
 ```
-
-ถ้าต้องการเปิดทั้งหมดด้วยคำสั่งเดียว ให้ดับเบิลคลิก `start-dev.bat` บน Windows หรือรันจาก Git Bash:
-
-```bash
-bash ./start-dev.sh
-```
-
-สคริปต์จะดึงไฟล์ล่าสุดจาก GitHub เมื่อไม่มี local changes, อัปเดต dependencies, รัน migration และเปิด Backend/Frontend ในหน้าต่างเดียว โดยตรวจ GitHub หาไฟล์ใหม่ทุก 60 วินาที หากมีไฟล์ที่แก้ในเครื่องอยู่ สคริปต์จะไม่ pull เพื่อป้องกันการทับงาน สามารถปิด auto-update ได้ด้วย `bash ./start-dev.sh --no-watch`
 
 API docs อยู่ที่ `http://localhost:8000/api/docs` และเว็บอยู่ที่ `http://localhost:5173`
 

@@ -221,9 +221,9 @@ cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
-alembic upgrade head
+python -m alembic upgrade head
 python -m app.cli bootstrap-admin
-uvicorn app.main:app --reload
+python -m uvicorn app.main:app --reload
 ```
 
 ถ้า PowerShell บล็อกการ activate ให้รันก่อนหนึ่งครั้งในหน้าต่างนั้น:
