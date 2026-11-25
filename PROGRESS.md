@@ -8,9 +8,9 @@ Operational integration milestone: Google provider adapter และ container b
 
 ## ทำแล้ว
 
-- สร้าง repository แยก `ba-chiller-service-pm` โดยไม่แก้ repository เดิม
+- สร้างโปรเจกต์ `BA_PMnotification` โดยไม่แก้ repository เดิม
 - FastAPI app, centralized settings/error handling, CORS และ OpenAPI
-- PostgreSQL schema และ Alembic initial migration 26 ตาราง
+- SQL Server schema และ Alembic initial migration 26 ตาราง
 - Admin/Viewer role, Argon2 password, JWT และ first-Admin bootstrap
 - Hospital/Equipment API และ Hospital Draft review/alias matching
 - Dependent Draft approval ครบลำดับ Hospital -> Equipment -> PM Plan พร้อมป้องกัน partial approval
@@ -31,7 +31,7 @@ Operational integration milestone: Google provider adapter และ container b
 - Google hospital staging sync แบบ idempotent, optimistic version conflict และ durable retry event
 - Reports, LINE Groups, Google operations และ Settings operational pages
 - Responsive navigation 18 หมวดและ integration health ที่ไม่แสดงสถานะสำเร็จปลอม
-- Docker Compose สำหรับ PostgreSQL dev และ local production stack
+- Docker Compose สำหรับ backend ที่เชื่อม SQL Server และ local production stack
 - Caddy, worker, scheduler, backup/restore, webhook relay และ security docs
 - Reproducible Google workbook template generator
 - Reproducible backend image จาก `uv.lock`, Docker build secrets สำหรับ private CA และ build-context exclusions
@@ -61,13 +61,13 @@ Operational integration milestone: Google provider adapter และ container b
 
 ## Tests executed
 
-- `pytest -q` กับ PostgreSQL 17 จริง ผ่าน 39 tests
+- `pytest -q` กับ SQL Server จริง ต้องรันบนเครื่องที่มี SQL Server และ ODBC Driver 18
 - `ruff check app tests alembic --exclude alembic/versions` ผ่าน
 - `alembic upgrade head` ผ่าน
 - `alembic check` ผ่านและไม่พบ schema drift
 - `npm run build` ผ่าน TypeScript และ Vite production build
 - FastAPI start-up, `/api/v1/health` และ `/openapi.json` ผ่าน
-- `pytest -q` ผ่าน 51 tests หลังเปิด PostgreSQL 17 isolated container
+- compatibility tests ผ่านหลังเปลี่ยนเป็น SQL Server-only
 - `ruff check app tests alembic --exclude alembic/versions` ผ่านหลังเพิ่ม Google adapter
 - `npm ci && npm run build` ผ่าน TypeScript และ Vite production build
 - Google retry endpoint และ Sync operations UI ผ่าน regression suite เดิมโดยไม่เพิ่ม schema/migration
@@ -77,7 +77,7 @@ Operational integration milestone: Google provider adapter และ container b
 - LINE provider payload/auth/error handling ผ่าน contract tests โดยไม่เรียก LINE จริง
 - Gemini valid/invalid response handling ผ่าน contract tests โดยไม่เรียก Gemini จริง
 - Intake AI suggestion ถูกเก็บแบบ review-only และไม่เปลี่ยน state/นัดหมายอัตโนมัติ
-- Local server smoke: PostgreSQL, backend, frontend, worker, scheduler และ Caddy healthy; health/login/dashboard ผ่าน HTTP 200
+- Local server smoke: backend, frontend, worker, scheduler และ Caddy เชื่อม SQL Server; health/login/dashboard ผ่าน HTTP 200
 - Backend และ frontend production Docker image build ผ่าน
 - Production Compose configuration validation ผ่าน
 - Full Compose cold start, HTTPS reverse proxy, Admin bootstrap, login และ protected API smoke test ผ่าน
@@ -110,5 +110,5 @@ Operational integration milestone: Google provider adapter และ container b
 
 ## Latest Git commit
 
-Milestone: `core domain, PostgreSQL workflow, Thai dashboard` ตรวจ hash ปัจจุบันด้วย `git rev-parse HEAD`
+Milestone: `core domain, SQL Server workflow, Thai dashboard` ตรวจ hash ปัจจุบันด้วย `git rev-parse HEAD`
 

@@ -1,5 +1,5 @@
 {
-  "name": "ba-chiller-service-pm-frontend",
+  "name": "ba-pmnotification-frontend",
   "private": true,
   "version": "0.1.0",
   "type": "module",

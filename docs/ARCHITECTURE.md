@@ -2,7 +2,7 @@
 
 ## ขอบเขตข้อมูล
 
-PostgreSQL เก็บสถานะธุรกิจที่ commit แล้วทั้งหมด Google Sheets รับข้อเสนอการแก้ไขและแสดงรายงาน Google Drive เก็บไฟล์ต้นฉบับด้วย stable file ID LINE ใช้รับข้อความและตอบรับนัดผ่าน webhook ที่ตรวจ signature แล้ว
+SQL Server/BA_PMnotification เก็บสถานะธุรกิจที่ commit แล้วทั้งหมด Google Sheets รับข้อเสนอการแก้ไขและแสดงรายงาน Google Drive เก็บไฟล์ต้นฉบับด้วย stable file ID LINE ใช้รับข้อความและตอบรับนัดผ่าน webhook ที่ตรวจ signature แล้ว
 
 ```mermaid
 flowchart LR
@@ -10,7 +10,7 @@ flowchart LR
   Viewer[Viewer Web] --> API
   LINE[LINE Messaging API] --> Relay[Public HTTPS webhook relay]
   Relay --> API
-  API --> DB[(PostgreSQL)]
+  API --> DB[(SQL Server)]
   API --> Outbox[(Notification and sync outbox)]
   Worker[Workers] --> Outbox
   Worker --> LINE
@@ -54,5 +54,5 @@ stateDiagram-v2
 - อนุมัติแผน สร้าง Annual Plan และ Slots ทั้งหมดใน transaction เดียว
 - อนุมัตินัด ล็อก Slot ตรวจ version สร้าง appointment, revision, token, audit และ notification job ใน transaction เดียว
 - Bulk approval ใช้ savepoint ต่อ draft เพื่อรายงานผลรายรายการ
-- Worker claim งานด้วย `FOR UPDATE SKIP LOCKED`
+- Worker claim งานด้วย SQL Server row lock hints
 

@@ -1,14 +1,13 @@
 from sqlalchemy import select
-from sqlalchemy.dialects import mssql, postgresql
+from sqlalchemy.dialects import mssql
 from sqlalchemy.schema import CreateTable
 
 from app.domain.models import Base, NotificationJob
 
 
-def test_metadata_compiles_for_postgresql_and_sql_server() -> None:
-    for dialect in (postgresql.dialect(), mssql.dialect()):
-        for table in Base.metadata.sorted_tables:
-            CreateTable(table).compile(dialect=dialect)
+def test_metadata_compiles_for_sql_server() -> None:
+    for table in Base.metadata.sorted_tables:
+        CreateTable(table).compile(dialect=mssql.dialect())
 
 
 def test_sql_server_worker_lock_hint_compiles() -> None:

@@ -21,6 +21,6 @@ docker compose -f deploy/relay/compose.yaml down
 
 - ให้ public endpoint รับ TLS จาก CA ที่ LINE เชื่อถือ และส่งต่อผ่าน outbound authenticated tunnel
 - จำกัด firewall ให้ relay เข้าถึงเฉพาะ backend webhook port/path
-- ไม่เปิด PostgreSQL, Docker socket, dashboard admin หรือ host administration
+- ไม่เปิด SQL Server, Docker socket, dashboard admin หรือ host administration
 - เก็บ access log ตามนโยบายโดยไม่บันทึก channel secret/token หรือ request body
 - ทดสอบ LINE Verify Webhook ด้วย credentials แยกและคง notification kill switch ไว้

@@ -1,20 +1,38 @@
 services:
-  db:
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_DB: ba_chiller
-      POSTGRES_USER: ba_chiller
-      POSTGRES_PASSWORD: ba_chiller
+  backend:
+    build: ./backend
+    env_file: .env
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
     ports:
-      - "55432:5432"
+      - "8000:8000"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ba_chiller -d ba_chiller"]
-      interval: 2s
-      timeout: 3s
-      retries: 20
-    volumes:
-      - ba_chiller_pgdata:/var/lib/postgresql/data
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=3).read()"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
-volumes:
-  ba_chiller_pgdata:
+  frontend:
+    build: ./frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "5173:80"
+
+  worker:
+    build: ./backend
+    env_file: .env
+    depends_on:
+      backend:
+        condition: service_healthy
+    command: ["python", "-m", "app.worker"]
+
+  scheduler:
+    build: ./backend
+    env_file: .env
+    depends_on:
+      backend:
+        condition: service_healthy
+    command: ["python", "-m", "app.scheduler"]
 

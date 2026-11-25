@@ -35,18 +35,18 @@ Service account ต้องมีสิทธิ์แก้ไขเฉพา�
 สร้าง workbook template ด้วย
 
 ```bash
-python scripts/create_workbook_template.py output/BA_CHILLER_PM_MASTER.xlsx
+python scripts/create_workbook_template.py output/BA_PMnotification_MASTER.xlsx
 ```
 
-ไฟล์ Template ที่สร้างไว้ใน repository คือ [`output/BA_CHILLER_PM_MASTER.xlsx`](../output/BA_CHILLER_PM_MASTER.xlsx)
+ไฟล์ Template ที่สร้างไว้ใน repository คือ [`output/BA_PMnotification_MASTER.xlsx`](../output/BA_PMnotification_MASTER.xlsx)
 ให้อัปโหลดไฟล์นี้เข้า Google Drive แล้วเลือก `Open with Google Sheets` จากนั้นแชร์ให้ service account
 ที่ใช้กับระบบเป็น Editor เฉพาะไฟล์นี้เท่านั้น ชีต `เริ่มที่นี่` อธิบายหน้าที่ของแต่ละคอลัมน์ไว้แล้ว
 
-Input tabs ใช้ `row_key`, `record_id`, `expected_version`, `operation`, `validation_status`, `validation_errors`, `processed_at` Reporting tabs เป็น projection จาก PostgreSQL ห้ามกรอก APPROVED ใน cell เพื่อแทนการอนุมัติของ Admin
+Input tabs ใช้ `row_key`, `record_id`, `expected_version`, `operation`, `validation_status`, `validation_errors`, `processed_at` Reporting tabs เป็น projection จาก SQL Server ห้ามกรอก APPROVED ใน cell เพื่อแทนการอนุมัติของ Admin
 
 ## Google Drive
 
-ให้ service account หรือ OAuth client เข้าถึงเฉพาะ folders ที่กำหนด ได้แก่ Technician_Schedules_Inbox, Technician_Schedules_Processed, Technician_Schedules_Rejected, Equipment_Documents และ Generated_Reports บันทึก Drive file ID และ checksum ใน PostgreSQL และไม่เปิด public sharing
+ให้ service account หรือ OAuth client เข้าถึงเฉพาะ folders ที่กำหนด ได้แก่ Technician_Schedules_Inbox, Technician_Schedules_Processed, Technician_Schedules_Rejected, Equipment_Documents และ Generated_Reports บันทึก Drive file ID และ checksum ใน SQL Server และไม่เปิด public sharing
 
 ## Gemini
 

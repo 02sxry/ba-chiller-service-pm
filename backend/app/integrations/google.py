@@ -147,7 +147,7 @@ class GoogleApiWorkspaceProvider:
                 return GoogleResult(False, error=f"ไม่พบโฟลเดอร์ {folder_name} ใต้ Google Drive root")
             if len(folders) > 1:
                 return GoogleResult(False, error=f"พบโฟลเดอร์ {folder_name} ซ้ำมากกว่า 1 รายการ")
-            metadata = {"name": name, "parents": [folders[0]["id"]], "description": f"BA Chiller/{folder_kind}"}
+            metadata = {"name": name, "parents": [folders[0]["id"]], "description": f"BA_PMnotification/{folder_kind}"}
             media = MediaIoBaseUpload(BytesIO(content), mimetype="application/octet-stream", resumable=False)
             response = self.drive.files().create(body=metadata, media_body=media, fields="id,name").execute()
             return GoogleResult(True, reference_id=response["id"])

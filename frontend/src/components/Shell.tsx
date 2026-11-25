@@ -38,7 +38,7 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
       <aside className={`sidebar ${open ? 'open' : ''}`}>
         <div className="brand">
           <div className="brand-mark"><Stethoscope size={22} /></div>
-          <div className="brand-copy"><strong>BA CHILLER</strong><span>SERVICE & PM</span></div>
+          <div className="brand-copy"><strong>BA_PMnotification</strong><span>NOTIFICATION & PM</span></div>
           <button className="icon-button close-mobile" onClick={() => setOpen(false)} aria-label="ปิดเมนู"><X /></button>
         </div>
         <nav>

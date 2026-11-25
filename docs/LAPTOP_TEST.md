@@ -21,7 +21,7 @@
 
 - [Python 3.12 ขึ้นไป](https://www.python.org/downloads/windows/) — ตอนติดตั้งให้ติ๊ก `Add Python to PATH`
 - [Node.js 24 ขึ้นไป](https://nodejs.org/en/download)
-- [PostgreSQL สำหรับ Windows](https://www.postgresql.org/download/windows/)
+- [Microsoft ODBC Driver 18 for SQL Server](https://learn.microsoft.com/sql/connect/odbc/download-odbc-driver-for-sql-server)
 
 ขั้นตอนด้านล่างของคู่มือนี้เป็น Docker Compose ส่วนวิธีติดตั้งแบบไม่ใช้ Docker อยู่ในหัวข้อท้ายคู่มือ
 
@@ -30,8 +30,8 @@
 เปิด PowerShell หรือ Terminal แล้วรัน:
 
 ```bash
-git clone https://github.com/02sxry/ba-chiller-service-pm.git
-cd ba-chiller-service-pm
+git clone https://github.com/02sxry/ba-chiller-service-pm.git BA_PMnotification
+cd BA_PMnotification
 ```
 
 สร้าง `.env` จากตัวอย่าง:
@@ -48,9 +48,8 @@ Copy-Item .env.example .env
 APP_ENV=development
 APP_HOST=localhost
 SECRET_KEY=local-notebook-secret-change-before-server
-POSTGRES_PASSWORD=local-notebook-db-password
-DATABASE_URL=postgresql+psycopg://ba_chiller:local-notebook-db-password@db:5432/ba_chiller
-DATABASE_URL_SYNC=postgresql+psycopg://ba_chiller:local-notebook-db-password@db:5432/ba_chiller
+DATABASE_URL=mssql+pyodbc://admin:admin@SQLSERVER_HOST:1433/BA_PMnotification?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+DATABASE_URL_SYNC=mssql+pyodbc://admin:admin@SQLSERVER_HOST:1433/BA_PMnotification?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
 FRONTEND_ORIGIN=http://localhost
 NOTIFICATIONS_ENABLED=false
 NOTIFICATION_KILL_SWITCH=true
@@ -60,7 +59,7 @@ LINE_CHANNEL_ACCESS_TOKEN=
 GEMINI_API_KEY=
 ```
 
-สำคัญ: ใน `DATABASE_URL` ต้องใช้ host เป็น `db` เพราะ backend อยู่ใน Compose network ไม่ใช่ `localhost` และห้าม commit หรือส่งไฟล์ `.env` ให้ผู้อื่น
+สำคัญ: เปลี่ยน `SQLSERVER_HOST` เป็นชื่อเครื่อง SQL Server ของบริษัท และห้าม commit หรือส่งไฟล์ `.env` ให้ผู้อื่น
 
 ## 2. เปิดระบบ
 
@@ -69,7 +68,7 @@ docker compose --env-file .env -f deploy/local/compose.yaml up -d
 docker compose --env-file .env -f deploy/local/compose.yaml ps
 ```
 
-รอจน `db` และ `backend` เป็น `healthy` หากต้องดู log:
+รอจน `backend` เป็น `healthy` หากต้องดู log:
 
 ```bash
 docker compose --env-file .env -f deploy/local/compose.yaml logs --tail=100 backend worker scheduler
@@ -136,14 +135,16 @@ docker compose --env-file .env -f deploy/local/compose.yaml down
 
 ## 7. สำรองข้อมูลก่อนย้ายไป local server
 
+ติดตั้ง `sqlcmd` บนเครื่องที่ใช้สั่ง backup แล้วตั้งค่า `SQLSERVER_HOST`, `SQLSERVER_USER`, `SQLSERVER_PASSWORD`, `SQLSERVER_BACKUP_PATH` จากนั้นรัน:
+
 ```bash
-docker compose --env-file .env -f deploy/local/compose.yaml exec -T db pg_dump -U ba_chiller -d ba_chiller > backup.sql
+./scripts/backup_database.sh
 ```
 
-เมื่อเตรียม server ใหม่แล้วจึง restore เข้า database ของ server นั้น:
+เมื่อเตรียม server ใหม่แล้วจึง restore เข้า database ของ server นั้น โดยให้ SQL Server มองเห็นไฟล์ backup:
 
 ```bash
-cat backup.sql | docker compose --env-file .env -f deploy/local/compose.yaml exec -T db psql -U ba_chiller -d ba_chiller
+./scripts/restore_rehearsal.sh /path/to/BA_PMnotification_YYYYMMDD.dump
 ```
 
 ตรวจชื่อ project, database และ backup ให้ถูกต้องก่อน restore ทุกครั้ง เพราะคำสั่งนี้เขียนข้อมูลลงฐานเป้าหมาย
@@ -151,45 +152,48 @@ cat backup.sql | docker compose --env-file .env -f deploy/local/compose.yaml exe
 ## ปัญหาที่พบบ่อย
 
 - Port 80/443 ถูกใช้งาน: ปิด IIS/Apache/โปรแกรมที่ใช้ port หรือแก้ mapping ใน `deploy/local/compose.yaml` เป็น `8080:80` และ `8443:443` แล้วเปิด `https://localhost:8443`
-- Backend ต่อ database ไม่ได้: ตรวจว่า URL ใช้ `@db:5432` ไม่ใช่ `@localhost:5432`
-- Service ยังไม่ healthy: รอ migration แล้วดู `docker compose ... logs --tail=100 backend db`
+- Backend ต่อ database ไม่ได้: ตรวจ SQL Server host, port 1433, login และ ODBC Driver 18
+- Service ยังไม่ healthy: รอ migration แล้วดู `docker compose ... logs --tail=100 backend`
 - Browser เตือน certificate: ใช้เฉพาะ local และเข้า `https://localhost` ตามขั้นตอนด้านบน
 - ห้ามใส่ LINE token, Google service-account JSON หรือ Gemini key ใน Git และอย่าเปิด integration จริงระหว่างการทดลองครั้งแรก
 
 ## ถ้าไม่ใช้ Docker Desktop (Windows)
 
-วิธีนี้ต้องเปิด Backend, Frontend, Worker และ Scheduler แยกกันหลายหน้าต่าง โดยติดตั้ง Python, Node.js และ PostgreSQL จากลิงก์ด้านบนก่อน
+วิธีนี้ต้องเปิด Backend, Frontend, Worker และ Scheduler แยกกันหลายหน้าต่าง โดยติดตั้ง Python, Node.js, ODBC Driver 18 และ SQL Server/สิทธิ์เชื่อมต่อก่อน
 
-### 1. ตั้งค่า PostgreSQL
+### 1. ตั้งค่า SQL Server
 
-ระหว่างติดตั้ง PostgreSQL สำหรับเครื่องทดสอบนี้ ให้ใช้ค่าดังนี้:
+ใน SSMS ให้สร้าง Database และ Login สำหรับเครื่องทดสอบนี้:
 
 ```text
-Username: admin
-Password: admin
-Port: 5432
+Database: BA_PMnotification
+Login: admin
+Port: 1433
 ```
 
 ค่าดังกล่าวใช้สำหรับ local notebook เท่านั้น ห้ามใช้บน local server จริงหรือ production
 
-เปิด pgAdmin 4 > Query Tool แล้วสร้างฐานข้อมูล:
+เปิด SSMS > New Query แล้วรัน:
 
 ```sql
-CREATE DATABASE ba_chiller OWNER admin;
+CREATE DATABASE [BA_PMnotification];
 ```
 
-ถ้า installer สร้าง user `admin` ให้แล้ว ไม่ต้องสร้าง user ซ้ำ หากยังไม่มี user ให้รัน:
+ถ้ายังไม่มี SQL Login `admin` ให้รันด้วยบัญชีผู้ดูแล:
 
 ```sql
-CREATE USER admin WITH PASSWORD 'admin';
-CREATE DATABASE ba_chiller OWNER admin;
+CREATE LOGIN admin WITH PASSWORD = 'เปลี่ยนเป็นรหัสผ่านจริง';
+GO
+USE [BA_PMnotification];
+CREATE USER admin FOR LOGIN admin;
+ALTER ROLE db_owner ADD MEMBER admin;
 ```
 
 ### 2. ดาวน์โหลดโค้ดและตั้งค่า `.env`
 
 ```powershell
-git clone https://github.com/02sxry/ba-chiller-service-pm.git
-cd ba-chiller-service-pm
+git clone https://github.com/02sxry/ba-chiller-service-pm.git BA_PMnotification
+cd BA_PMnotification
 Copy-Item .env.example .env
 ```
 
@@ -199,9 +203,8 @@ Copy-Item .env.example .env
 APP_ENV=development
 APP_HOST=localhost
 SECRET_KEY=local-notebook-secret-key
-POSTGRES_PASSWORD=admin
-DATABASE_URL=postgresql+psycopg://admin:admin@localhost:5432/ba_chiller
-DATABASE_URL_SYNC=postgresql+psycopg://admin:admin@localhost:5432/ba_chiller
+DATABASE_URL=mssql+pyodbc://admin:admin@localhost:1433/BA_PMnotification?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+DATABASE_URL_SYNC=mssql+pyodbc://admin:admin@localhost:1433/BA_PMnotification?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
 FRONTEND_ORIGIN=http://localhost:5173
 NOTIFICATIONS_ENABLED=false
 NOTIFICATION_KILL_SWITCH=true
@@ -237,7 +240,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 เปิด PowerShell ใหม่:
 
 ```powershell
-cd ba-chiller-service-pm\frontend
+cd BA_PMnotification\frontend
 npm install
 npm run dev
 ```
@@ -249,7 +252,7 @@ npm run dev
 เปิด PowerShell เพิ่มอีกสองหน้าต่าง แล้วรันคำสั่งต่อไปนี้ โดยต้อง activate `.venv` ทุกหน้าต่าง:
 
 ```powershell
-cd ba-chiller-service-pm\backend
+cd BA_PMnotification\backend
 .\.venv\Scripts\Activate.ps1
 python -m app.worker
 ```
@@ -257,7 +260,7 @@ python -m app.worker
 และอีกหน้าต่าง:
 
 ```powershell
-cd ba-chiller-service-pm\backend
+cd BA_PMnotification\backend
 .\.venv\Scripts\Activate.ps1
 python -m app.scheduler
 ```

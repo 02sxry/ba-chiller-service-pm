@@ -1,2 +1,2 @@
-"""BA Chiller Service & PM Assistant backend."""
+"""BA_PMnotification backend."""
 

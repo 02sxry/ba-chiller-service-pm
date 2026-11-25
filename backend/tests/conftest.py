@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 os.environ.setdefault(
     "DATABASE_URL",
-    "postgresql+psycopg://ba_chiller:ba_chiller@localhost:55432/ba_chiller",
+    "mssql+pyodbc://admin:admin@localhost:1433/BA_PMnotification?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
 )
 
 

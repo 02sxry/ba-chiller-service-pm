@@ -13,11 +13,14 @@ def _development_secret() -> str:
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
 
-    app_name: str = "BA Chiller Service & PM Assistant"
+    app_name: str = "BA_PMnotification"
     app_env: Literal["development", "test", "production"] = "development"
     api_prefix: str = "/api/v1"
     secret_key: str = Field(default_factory=_development_secret)
-    database_url: str = "postgresql+psycopg://localhost/ba_chiller"
+    database_url: str = (
+        "mssql+pyodbc://admin:admin@localhost:1433/BA_PMnotification?"
+        "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
+    )
     frontend_origin: str = "http://localhost:5173"
     timezone: str = "Asia/Bangkok"
     access_token_minutes: int = 480

@@ -1,17 +1,17 @@
-# BA Chiller Service & PM Assistant
+# BA_PMnotification
 
-ระบบวางแผน PM และจัดการนัดหมายงาน Chiller สำหรับโรงพยาบาล โดย PostgreSQL เป็นค่าเริ่มต้นสำหรับการทดลอง และรองรับ SQL Server/SSMS สำหรับใช้งานในองค์กร ส่วน Google Sheets เป็นช่องทาง staging/reporting เท่านั้น
+ระบบวางแผน PM และจัดการนัดหมายงาน Chiller สำหรับโรงพยาบาล โดยใช้ SQL Server เป็นฐานข้อมูลหลักและ SSMS เป็นเครื่องมือจัดการฐานข้อมูล ส่วน Google Sheets เป็นช่องทาง staging/reporting เท่านั้น
 
 > `CONFIRMED` หมายถึงโรงพยาบาลยอมรับวันนัดล่วงหน้า ระบบนี้ไม่มีสถานะ `COMPLETED` และไม่อนุมานว่างานบริการเสร็จแล้ว
 
 ## เริ่มระบบสำหรับพัฒนา
 
-ต้องมี Docker, Python 3.12+ และ Node.js 24+
+ต้องมี SQL Server, Microsoft ODBC Driver 18, Python 3.12+ และ Node.js 24+
 
 ```bash
-docker compose up -d db
 cd backend
-# ตั้ง DATABASE_URL ใน shell ให้ชี้ PostgreSQL สำหรับพัฒนาก่อนรันคำสั่งต่อไปนี้
+# ตั้ง DATABASE_URL ใน .env ให้ชี้ SQL Server/BA_PMnotification ก่อนรันคำสั่งต่อไปนี้
+uv sync --frozen
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
@@ -32,7 +32,7 @@ API docs อยู่ที่ `http://localhost:8000/api/docs` และเว�
 python -m app.cli bootstrap-admin
 ```
 
-ถ้ารันด้วย production Compose ให้สร้างจาก backend container เพื่อไม่ต้องเปิดพอร์ต PostgreSQL:
+ถ้ารันด้วย production Compose ให้สร้างจาก backend container:
 
 ```bash
 docker compose --env-file .env -f deploy/local/compose.yaml exec backend python -m app.cli bootstrap-admin

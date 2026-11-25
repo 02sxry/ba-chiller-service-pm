@@ -20,9 +20,9 @@ VIEW_SHEETS = [
     "Sync_Status", "Data_Dictionary",
 ]
 README_ROWS = [
-    ["BA CHILLER SERVICE & PM — Google Sheets Template"],
+    ["BA_PMnotification — Google Sheets Template"],
     ["วิธีใช้", "กรอกเฉพาะชีตที่ลงท้ายด้วย _Input แล้วปล่อยให้ระบบสร้างชีต _View ให้อัตโนมัติ"],
-    ["แหล่งข้อมูลจริง", "PostgreSQL เป็นแหล่งข้อมูลจริง Google Sheets ใช้กรอกข้อมูลและแสดงผลเท่านั้น"],
+    ["แหล่งข้อมูลจริง", "SQL Server เป็นแหล่งข้อมูลจริง Google Sheets ใช้กรอกข้อมูลและแสดงผลเท่านั้น"],
     ["พร้อมใช้งานตอนนี้", "Hospitals_Input รองรับการส่งเข้า/ออกระบบแล้ว"],
     ["เตรียมไว้สำหรับขั้นถัดไป", "Equipment_Input, PM_Plans_Input และ Next_Year_PM_Drafts มีโครงสร้างพร้อม แต่ต้องเปิด API sync เพิ่มก่อนใช้จริง"],
     ["ข้อห้าม", "ห้ามแก้ไขชีต _View และห้ามใช้เลขแถวเป็น row_key"],
@@ -71,7 +71,7 @@ def create(path: Path) -> None:
         style_header(sheet)
     for name in VIEW_SHEETS:
         sheet = workbook.create_sheet(name)
-        sheet.append(["generated_at", "ข้อมูลใน worksheet นี้สร้างจาก PostgreSQL และเป็น read-only"])
+        sheet.append(["generated_at", "ข้อมูลใน worksheet นี้สร้างจาก SQL Server และเป็น read-only"])
         style_header(sheet)
         sheet.protection.sheet = True
     dictionary = workbook["Data_Dictionary"]
@@ -79,7 +79,7 @@ def create(path: Path) -> None:
     dictionary.delete_rows(1, dictionary.max_row)
     dictionary.append(["field", "description"])
     dictionary.append(["row_key", "รหัสถาวรของแถว ห้ามใช้เลขลำดับแถว"])
-    dictionary.append(["record_id", "UUID ของ record ใน PostgreSQL"])
+    dictionary.append(["record_id", "UUID ของ record ใน SQL Server"])
     dictionary.append(["expected_version", "version ที่ผู้ใช้เห็น ใช้ตรวจ optimistic concurrency"])
     dictionary.append(["operation", "CREATE, UPDATE หรือ DEACTIVATE ตามสิทธิ์"])
     style_header(dictionary)
@@ -88,7 +88,7 @@ def create(path: Path) -> None:
 
 
 if __name__ == "__main__":
-    output = Path(sys.argv[1] if len(sys.argv) > 1 else "BA_CHILLER_PM_MASTER.xlsx")
+    output = Path(sys.argv[1] if len(sys.argv) > 1 else "BA_PMnotification_MASTER.xlsx")
     create(output)
     print(output)
 

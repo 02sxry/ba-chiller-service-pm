@@ -1,25 +1,25 @@
 # ใช้ SQL Server / SSMS เป็นฐานข้อมูลของระบบ
 
-ระบบรองรับ SQL Server ผ่าน SQLAlchemy และ ODBC Driver 18 โดยไม่ต้องแก้หน้าเว็บหรือ API ค่าเริ่มต้นของโปรเจกต์ยังเป็น PostgreSQL เพื่อให้การทดลองบนโน้ตบุ๊กเดิมทำงานต่อได้
+BA_PMnotification ใช้ SQL Server เป็นฐานข้อมูลหลักเพียงตัวเดียว ผ่าน SQLAlchemy และ ODBC Driver 18 ส่วน SSMS ใช้สำหรับสร้างฐานข้อมูล ตรวจตาราง และสำรองข้อมูล
 
 ## 1. เตรียม SQL Server
 
-ให้ผู้ดูแล SQL Server สร้างฐานข้อมูลและ login สำหรับแอปใน SSMS ตัวอย่างนี้ใช้ชื่อฐานข้อมูล `ba_chiller` และ login `ba_chiller_app`:
+ให้ผู้ดูแล SQL Server สร้างฐานข้อมูลและ login สำหรับแอปใน SSMS ตัวอย่างนี้ใช้ชื่อฐานข้อมูล `BA_PMnotification` และ login `BA_PMnotification_app`:
 
 ```sql
-CREATE DATABASE ba_chiller;
+CREATE DATABASE [BA_PMnotification];
 GO
 
-USE ba_chiller;
+USE [BA_PMnotification];
 GO
 
-CREATE LOGIN ba_chiller_app WITH PASSWORD = 'เปลี่ยนเป็นรหัสผ่านจริงที่แข็งแรง';
+CREATE LOGIN [BA_PMnotification_app] WITH PASSWORD = 'เปลี่ยนเป็นรหัสผ่านจริงที่แข็งแรง';
 GO
 
-CREATE USER ba_chiller_app FOR LOGIN ba_chiller_app;
-ALTER ROLE db_datareader ADD MEMBER ba_chiller_app;
-ALTER ROLE db_datawriter ADD MEMBER ba_chiller_app;
-ALTER ROLE db_ddladmin ADD MEMBER ba_chiller_app;
+CREATE USER [BA_PMnotification_app] FOR LOGIN [BA_PMnotification_app];
+ALTER ROLE db_datareader ADD MEMBER [BA_PMnotification_app];
+ALTER ROLE db_datawriter ADD MEMBER [BA_PMnotification_app];
+ALTER ROLE db_ddladmin ADD MEMBER [BA_PMnotification_app];
 GO
 ```
 
@@ -31,13 +31,13 @@ GO
 
 ```bash
 cd backend
-uv sync --extra mssql
+uv sync --frozen
 ```
 
 ถ้าใช้ `pip` แทน `uv`:
 
 ```bash
-pip install -e ".[mssql]"
+pip install -e "."
 ```
 
 ## 3. ตั้งค่า `DATABASE_URL`
@@ -45,7 +45,7 @@ pip install -e ".[mssql]"
 ใส่ในไฟล์ `.env` ของ Backend ตัวอย่าง SQL Authentication:
 
 ```dotenv
-DATABASE_URL=mssql+pyodbc://ba_chiller_app:รหัสผ่านที่เข้ารหัสแล้ว@SQLSERVER_HOST:1433/ba_chiller?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+DATABASE_URL=mssql+pyodbc://BA_PMnotification_app:รหัสผ่านที่เข้ารหัสแล้ว@SQLSERVER_HOST:1433/BA_PMnotification?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
 ```
 
 ถ้ารหัสผ่านมีอักขระพิเศษ เช่น `@`, `#`, `/` ต้อง URL-encode ก่อน หรือใช้รูปแบบ `odbc_connect` ตามเอกสาร SQLAlchemy สำหรับ pyodbc
@@ -53,7 +53,7 @@ DATABASE_URL=mssql+pyodbc://ba_chiller_app:รหัสผ่านที่เ�
 ถ้าองค์กรใช้ Windows Authentication ให้ใช้รูปแบบนี้แทน:
 
 ```dotenv
-DATABASE_URL=mssql+pyodbc://@SQLSERVER_HOST/ba_chiller?driver=ODBC+Driver+18+for+SQL+Server&trusted_connection=yes&TrustServerCertificate=yes
+DATABASE_URL=mssql+pyodbc://@SQLSERVER_HOST/BA_PMnotification?driver=ODBC+Driver+18+for+SQL+Server&trusted_connection=yes&TrustServerCertificate=yes
 ```
 
 `SQLSERVER_HOST` อาจเป็น `SERVERNAME`, `SERVERNAME\\INSTANCE` หรือ `SERVERNAME,1433` ตามค่าที่องค์กรกำหนด
@@ -83,4 +83,4 @@ python -m app.cli ensure-admin
 5. ทดสอบสร้างแผน PM และยกเลิก/Archive อุปกรณ์
 6. ทำ backup SQL Server ก่อนนำข้อมูลจริงหรือเปิด LINE
 
-ยังไม่ควรเปิดระบบจริงโดยใช้ PostgreSQL และ SQL Server สลับไปมาในเวลาเดียวกัน เพราะข้อมูลที่กรอกจะแยกกันคนละฐานข้อมูล
+ระบบนี้จะอ่านและบันทึกข้อมูลจาก SQL Server/BA_PMnotification เท่านั้น

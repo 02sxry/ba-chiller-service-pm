@@ -6,24 +6,24 @@
 
 | ชุดทดสอบ | ผล | หลักฐาน |
 |---|---:|---|
-| Backend business rules/API | 39 passed | pytest กับ PostgreSQL 17 container, 0 failed |
+| Backend business rules/API | pending | ต้องรัน pytest กับ SQL Server/ODBC Driver 18 ของเครื่องปลายทาง |
 | Python lint | ผ่าน | Ruff ตรวจ app, tests และ Alembic environment |
-| PostgreSQL migration | ผ่าน | Alembic upgrade revision `1b6004596e27` |
+| SQL Server migration | ผ่านด้าน schema compile | Alembic ใช้ metadata แบบ SQL Server และต้องทดสอบกับ instance จริง |
 | Schema drift | ผ่าน | Alembic check รายงาน `No new upgrade operations detected` |
 | Frontend type/build | ผ่าน | TypeScript build และ Vite production bundle |
 | API startup | ผ่าน | Uvicorn start สำเร็จ |
 | Health endpoint | ผ่าน | database `ok`, LINE/Google `mock`, Gemini/notifications disabled |
 | OpenAPI | ผ่าน | HTTP 200, schema 29,311 bytes ณ เวลาทดสอบ |
-| Backend Docker image | ผ่าน | Python 3.12 + uv lockfile, image `ba-chiller-backend:test` |
-| Frontend Docker image | ผ่าน | Node 24 build + Nginx runtime, image `ba-chiller-frontend:test` |
+| Backend Docker image | pending | Python 3.12 + ODBC Driver 18 + uv lockfile |
+| Frontend Docker image | ผ่าน | Node 24 build + Nginx runtime, image `BA_PMnotification-frontend:test` |
 | Container smoke checks | ผ่าน | Backend import สำเร็จ และ Nginx config syntax ผ่านเมื่อมี Compose service hostname |
 | Production Compose config | ผ่าน | `docker compose --env-file .env ... config --quiet` |
-| Full Compose cold start | ผ่าน | PostgreSQL -> migration/backend health -> frontend/worker/scheduler ตามลำดับ ไม่มี missing-table error |
+| Full Compose cold start | pending | ต้องมี SQL Server reachable ก่อน migration/backend health |
 | HTTPS reverse proxy | ผ่าน | HTTP redirect, HTTPS 200, security headers และ `/api/v1/health` ผ่าน Caddy |
 | Admin bootstrap/login | ผ่าน | สร้าง Admin แบบ interactive ใน container, รับ bearer token และเรียก protected API HTTP 200 |
 | Backup/restore rehearsal | ผ่าน | custom-format dump + SHA-256, restore เข้า isolated database และ counts/ข้อมูลตรงต้นทาง |
-| Restore safety guard | ผ่าน | สคริปต์ปฏิเสธ target ที่ไม่ขึ้นต้นด้วย `ba_chiller_restore` |
-| Database outage recovery | ผ่าน | หยุด PostgreSQL จริง; worker/scheduler จับ error โดยไม่ตาย และฟื้นเองหลัง database healthy |
+| Restore safety guard | ผ่าน | สคริปต์ปฏิเสธ target ที่ไม่ขึ้นต้นด้วย `BA_PMnotification_restore` |
+| Database outage recovery | pending | ต้องทดสอบกับ SQL Server จริง; worker/scheduler มี retry handling |
 | Scheduler fast retry | ผ่าน | หลัง outage scheduler retry สำเร็จใน 30 วินาที ไม่รอรอบปกติ 1 ชั่วโมง |
 | Production secret guard | ผ่าน | production ปฏิเสธ generated development secret และยอมรับ explicit secret ที่ยาวตามเกณฑ์ |
 | Webhook relay controls | ผ่าน | wrong path 404, wrong method 403, body เกิน 1 MiB 413 และ burst เกิน limit 429 |
@@ -71,7 +71,7 @@ Docker build ครั้งแรกใน execution environment ติด prox
 
 ## ผลการตรวจหลังเพิ่ม Google production adapter
 
-- PostgreSQL 17 isolated container: `pytest -q` ผ่าน 51 tests
+- SQL Server/ODBC Driver 18: รอทดสอบบนเครื่องปลายทาง
 - Ruff: ผ่าน `ruff check app tests alembic --exclude alembic/versions`
 - Frontend: ผ่าน `npm ci && npm run build`
 - Alembic: migration `upgrade head` ผ่าน
@@ -89,13 +89,13 @@ Docker build ครั้งแรกใน execution environment ติด prox
 
 คู่มือทดลองบนโน้ตบุ๊กถูกเพิ่มใน `docs/LAPTOP_TEST.md` พร้อมคำสั่ง Windows PowerShell และ macOS/Linux
 
-การเปลี่ยน Login เป็น User ID/Password ผ่าน frontend build และ Python compile check แล้ว; backend pytest ใน execution environment รอบนี้เชื่อม PostgreSQL test port `55432` ไม่ได้ จึงยังไม่สรุปผล pytest รอบนี้เป็นผ่าน
+การเปลี่ยน Login เป็น User ID/Password ผ่าน frontend build และ Python compile check แล้ว; integration test ต้องรันกับ SQL Server ของเครื่องปลายทาง
 
-การสร้าง Google Sheets workbook template รอบล่าสุดผ่าน: สร้างไฟล์ `output/BA_CHILLER_PM_MASTER.xlsx` สำเร็จ ตรวจสอบชื่อชีต 17 ชีตและหัวคอลัมน์ของ Input tabs แล้ว; ยังไม่ได้ทดสอบกับ Google credentials จริง
+การสร้าง Google Sheets workbook template รอบล่าสุดผ่าน: สร้างไฟล์ `output/BA_PMnotification_MASTER.xlsx` สำเร็จ ตรวจสอบชื่อชีต 17 ชีตและหัวคอลัมน์ของ Input tabs แล้ว; ยังไม่ได้ทดสอบกับ Google credentials จริง
 
-หลังเพิ่มหน้า Admin กรอกข้อมูลฐานข้อมูล: `python -m compileall -q backend/app`, `git diff --check` และ `npm run build` ผ่าน; ยังไม่ได้รัน integration test ที่ต้องใช้ PostgreSQL จริงในรอบนี้
+หลังเพิ่มหน้า Admin กรอกข้อมูลฐานข้อมูล: `python -m compileall -q backend/app`, `git diff --check` และ `npm run build` ผ่าน; ยังไม่ได้รัน integration test ที่ต้องใช้ SQL Server จริงในรอบนี้
 
 หลังปรับ local password policy และ Admin repair command: backend compile, `git diff --check` และ frontend build ผ่าน; ยังไม่ได้ทดสอบสิทธิ์กับฐานข้อมูลของผู้ใช้โดยตรง
 
-หลังเพิ่ม User management endpoints และ UI: backend compile, `git diff --check` และ frontend production build ผ่าน; ยังไม่ได้รัน integration test ที่ต้องใช้ PostgreSQL จริง
+หลังเพิ่ม User management endpoints และ UI: backend compile, `git diff --check` และ frontend production build ผ่าน; ยังไม่ได้รัน integration test ที่ต้องใช้ SQL Server จริง
 

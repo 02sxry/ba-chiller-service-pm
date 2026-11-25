@@ -6,7 +6,7 @@
 
 ## ใช้งานได้แล้ว
 
-- PostgreSQL migration และ authoritative business state
+- SQL Server migration และ authoritative business state
 - Authentication/role enforcement foundation
 - Hospital/Equipment master data และ dependent Draft review ถึง PM Plan
 - Annual plan, PM Slot และ next-year drafts
@@ -37,7 +37,7 @@ Real external integrations, public TLS/tunnel และ browser E2E
 
 ## เริ่มระบบ
 
-ทำตาม `README.md` ใช้ PostgreSQL dev container รัน Alembic สร้าง Admin คนแรก แล้วเริ่ม FastAPI และ Vite
+ทำตาม `README.md` เชื่อม SQL Server/SSMS รัน Alembic สร้าง Admin คนแรก แล้วเริ่ม FastAPI และ Vite
 
 ## Mock LINE และ Google
 

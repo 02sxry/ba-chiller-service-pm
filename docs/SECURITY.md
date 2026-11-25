@@ -10,5 +10,5 @@
 - Secrets อยู่ใน environment/secret store และต้องไม่ commit
 - Logs ห้ามบันทึก token, password, private key หรือ raw credential
 - Caddy เพิ่ม security headers และเปิดเฉพาะ HTTPS application endpoint
-- PostgreSQL อยู่ใน private container network ไม่มี public exposure ใน production compose
+- SQL Server ไม่เปิด public exposure และรับการเชื่อมต่อเฉพาะจาก application server/network ที่อนุญาต
 

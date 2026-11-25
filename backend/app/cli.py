@@ -81,7 +81,7 @@ def bootstrap_admin_interactive() -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="BA Chiller administration CLI")
+    parser = argparse.ArgumentParser(description="BA_PMnotification administration CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("bootstrap-admin", help="สร้างผู้ดูแลระบบคนแรกแบบ interactive")
     subparsers.add_parser("ensure-admin", help="ซ่อม/ตั้งค่า User ID admin ให้เป็น Admin สำหรับ local development")
