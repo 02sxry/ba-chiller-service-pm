@@ -2,12 +2,15 @@
 
 BA_PMnotification ใช้ SQL Server เป็นฐานข้อมูลหลักเพียงตัวเดียว ผ่าน SQLAlchemy และ ODBC Driver 18 ส่วน SSMS ใช้สำหรับสร้างฐานข้อมูล ตรวจตาราง และสำรองข้อมูล
 
-## 1. เตรียม SQL Server
+## 1. สร้างฐานใหม่ใน SSMS
 
-ให้ผู้ดูแล SQL Server สร้างฐานข้อมูลและ login สำหรับแอปใน SSMS ตัวอย่างนี้ใช้ชื่อฐานข้อมูล `BA_PMnotification` และ login `BA_PMnotification_app`:
+รอบนี้เริ่มฐานข้อมูลใหม่ ไม่ย้ายข้อมูลจากฐานเดิม โดยให้ผู้ดูแล SQL Server เปิด SSMS แล้วรัน:
 
 ```sql
-CREATE DATABASE [BA_PMnotification];
+IF DB_ID(N'BA_PMnotification') IS NULL
+BEGIN
+    CREATE DATABASE [BA_PMnotification];
+END;
 GO
 
 USE [BA_PMnotification];
@@ -24,6 +27,8 @@ GO
 ```
 
 ทำขั้นตอนนี้ด้วยบัญชีผู้ดูแลเท่านั้น และไม่ใส่รหัสผ่านจริงลง Git หรือส่งในแชต
+
+ถ้าใช้ Windows Authentication อยู่แล้ว สามารถข้ามการสร้าง SQL Login และให้ Backend ใช้รูปแบบ `trusted_connection=yes` ได้
 
 ## 2. ติดตั้ง driver และ Python package
 

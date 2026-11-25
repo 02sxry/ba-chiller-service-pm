@@ -64,7 +64,6 @@ class Hospital(IdMixin, TimestampMixin, VersionMixin, Base):
     __tablename__ = "hospitals"
     hospital_code: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     hospital_name: Mapped[str] = mapped_column(String(255), index=True)
-    short_name: Mapped[str | None] = mapped_column(String(120))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str | None] = mapped_column(Text)
     aliases: Mapped[list["HospitalAlias"]] = relationship(back_populates="hospital", cascade="all, delete-orphan")

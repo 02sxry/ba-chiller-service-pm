@@ -307,7 +307,7 @@ def update_hospital(hospital_id: uuid.UUID, request: HospitalUpdate, db: Db, adm
     hospital = db.get(Hospital, hospital_id)
     if not hospital:
         raise HTTPException(status_code=404, detail="ไม่พบโรงพยาบาล")
-    old_values = {"hospital_name": hospital.hospital_name, "short_name": hospital.short_name, "notes": hospital.notes}
+    old_values = {"hospital_name": hospital.hospital_name, "notes": hospital.notes}
     for field, value in request.model_dump(exclude_unset=True).items():
         setattr(hospital, field, value.strip() if isinstance(value, str) and value else value)
     try:

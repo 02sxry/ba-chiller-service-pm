@@ -6,7 +6,7 @@ from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 INPUT_SHEETS = {
-    "Hospitals_Input": ["hospital_code", "hospital_name", "short_name", "active", "notes"],
+    "Hospitals_Input": ["hospital_code", "hospital_name", "active", "notes"],
     "Hospital_Aliases_Input": ["hospital_id", "alias"],
     "Manufacturers_Input": ["name", "active"],
     "Equipment_Types_Input": ["name", "active"],

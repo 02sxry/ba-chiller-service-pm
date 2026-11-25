@@ -29,7 +29,7 @@ def match_hospitals(db: Session, text: str, limit: int = 5) -> list[Match]:
     hospitals = db.scalars(select(Hospital).options(selectinload(Hospital.aliases)).where(Hospital.active.is_(True))).all()
     matches = []
     for hospital in hospitals:
-        names = [hospital.hospital_name, hospital.short_name or ""] + [a.alias for a in hospital.aliases]
+        names = [hospital.hospital_name] + [a.alias for a in hospital.aliases]
         score = max(fuzz.ratio(query, normalize_name(name)) for name in names if name)
         matches.append(Match(hospital.id, hospital.hospital_name, int(score)))
     return sorted(matches, key=lambda item: item.score, reverse=True)[:limit]

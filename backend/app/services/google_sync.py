@@ -37,7 +37,6 @@ def _queue_hospital_export(db: Session, hospital: Hospital) -> SyncEvent:
                 "record_id": str(hospital.id),
                 "hospital_code": hospital.hospital_code,
                 "hospital_name": hospital.hospital_name,
-                "short_name": hospital.short_name,
                 "active": hospital.active,
                 "version": hospital.version,
             }],
@@ -79,7 +78,6 @@ def process_hospital_submission(
             hospital = Hospital(
                 hospital_code=str(row.get("hospital_code") or "").strip(),
                 hospital_name=str(row.get("hospital_name") or "").strip(),
-                short_name=str(row["short_name"]).strip() if row.get("short_name") else None,
                 notes=str(row["notes"]).strip() if row.get("notes") else None,
             )
             if not hospital.hospital_code or not hospital.hospital_name:
@@ -113,7 +111,6 @@ def process_hospital_submission(
                 return event
             old_values = {
                 "hospital_name": hospital.hospital_name,
-                "short_name": hospital.short_name,
                 "active": hospital.active,
                 "version": hospital.version,
             }
@@ -121,7 +118,6 @@ def process_hospital_submission(
                 hospital.active = False
             else:
                 hospital.hospital_name = str(row.get("hospital_name") or hospital.hospital_name).strip()
-                hospital.short_name = str(row["short_name"]).strip() if row.get("short_name") else None
                 hospital.notes = str(row["notes"]).strip() if row.get("notes") else hospital.notes
             db.flush()
             event.entity_id = hospital.id
@@ -134,7 +130,6 @@ def process_hospital_submission(
                 old_values=old_values,
                 new_values={
                     "hospital_name": hospital.hospital_name,
-                    "short_name": hospital.short_name,
                     "active": hospital.active,
                     "version": hospital.version,
                 },

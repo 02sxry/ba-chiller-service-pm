@@ -28,7 +28,6 @@ def test_valid_hospital_sheet_row_is_applied_once(db) -> None:
         "operation": "CREATE",
         "hospital_code": "SYNC-H001",
         "hospital_name": "โรงพยาบาลจากชีต",
-        "short_name": "รพ.ชีต",
         "notes": None,
     }
     first = process_hospital_submission(db, row, admin)

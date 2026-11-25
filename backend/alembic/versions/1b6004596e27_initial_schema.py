@@ -49,7 +49,6 @@ def upgrade() -> None:
     op.create_table('hospitals',
     sa.Column('hospital_code', sa.String(length=50), nullable=False),
     sa.Column('hospital_name', sa.String(length=255), nullable=False),
-    sa.Column('short_name', sa.String(length=120), nullable=True),
     sa.Column('active', sa.Boolean(), nullable=False),
     sa.Column('notes', sa.Text(), nullable=True),
     sa.Column('id', sa.UUID(), nullable=False),

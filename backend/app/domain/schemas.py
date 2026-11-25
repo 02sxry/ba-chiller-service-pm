@@ -49,13 +49,11 @@ class UserView(ORMModel):
 class HospitalCreate(BaseModel):
     hospital_code: str | None = Field(default=None, min_length=1, max_length=50)
     hospital_name: str = Field(min_length=1, max_length=255)
-    short_name: str | None = Field(default=None, max_length=120)
     notes: str | None = None
 
 
 class HospitalUpdate(BaseModel):
     hospital_name: str | None = Field(default=None, min_length=1, max_length=255)
-    short_name: str | None = Field(default=None, max_length=120)
     notes: str | None = None
 
 
@@ -333,7 +331,6 @@ class HospitalSheetSubmission(BaseModel):
     operation: str
     hospital_code: str | None = None
     hospital_name: str | None = None
-    short_name: str | None = None
     notes: str | None = None
 
 
