@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.db import bool_filter
 from app.domain.enums import PlanningMode
 from app.domain.models import AnnualPlan, Equipment, NextYearPlanDraft, PMSlot, User
 from app.domain.schemas import PlanApproveRequest, PlanPreviewRequest
@@ -83,8 +84,8 @@ def generate_next_year_drafts(db: Session, source_year: int, target_year: int) -
     plans = db.scalars(
         select(AnnualPlan).join(Equipment).where(
             AnnualPlan.plan_year == source_year,
-            AnnualPlan.active.is_(True),
-            Equipment.active.is_(True),
+            bool_filter(AnnualPlan.active, True),
+            bool_filter(Equipment.active, True),
         )
     ).all()
     drafts: list[NextYearPlanDraft] = []

@@ -7,6 +7,7 @@ from rapidfuzz import fuzz
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.db import bool_filter
 from app.domain.models import Equipment, Hospital, PMSlot
 
 
@@ -26,7 +27,7 @@ class Match:
 
 def match_hospitals(db: Session, text: str, limit: int = 5) -> list[Match]:
     query = normalize_name(text)
-    hospitals = db.scalars(select(Hospital).options(selectinload(Hospital.aliases)).where(Hospital.active.is_(True))).all()
+    hospitals = db.scalars(select(Hospital).options(selectinload(Hospital.aliases)).where(bool_filter(Hospital.active, True))).all()
     matches = []
     for hospital in hospitals:
         names = [hospital.hospital_name] + [a.alias for a in hospital.aliases]
@@ -38,7 +39,7 @@ def match_hospitals(db: Session, text: str, limit: int = 5) -> list[Match]:
 def match_equipment(db: Session, hospital_id: uuid.UUID, text: str, limit: int = 5) -> list[Match]:
     query = normalize_name(text)
     equipment = db.scalars(
-        select(Equipment).where(Equipment.hospital_id == hospital_id, Equipment.active.is_(True))
+        select(Equipment).where(Equipment.hospital_id == hospital_id, bool_filter(Equipment.active, True))
     ).all()
     matches = [
         Match(item.id, item.equipment_name, int(fuzz.ratio(query, normalize_name(item.equipment_name))))
@@ -56,7 +57,7 @@ def recommend_slots(db: Session, equipment_id: uuid.UUID, proposed_date: date) -
     slots = db.scalars(
         select(PMSlot)
         .options(selectinload(PMSlot.appointment))
-        .where(PMSlot.equipment_id == equipment_id, PMSlot.active.is_(True))
+        .where(PMSlot.equipment_id == equipment_id, bool_filter(PMSlot.active, True))
     ).all()
     recommendations = []
     for slot in slots:

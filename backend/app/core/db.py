@@ -32,6 +32,11 @@ def lock_query(query: Any, model: Any, db: Session, *, skip_locked: bool = False
     return query.with_for_update(skip_locked=skip_locked)
 
 
+def bool_filter(column: Any, value: bool) -> Any:
+    """Build a boolean comparison that works with SQL Server BIT columns."""
+    return column == (1 if value else 0)
+
+
 def get_db() -> Generator[Session, None, None]:
     with SessionLocal() as session:
         yield session

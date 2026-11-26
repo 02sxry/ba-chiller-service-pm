@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.db import get_db
+from app.core.db import bool_filter, get_db
 from app.domain.enums import Role
 from app.domain.models import User
 
@@ -55,7 +55,7 @@ def current_user(
         user_id = uuid.UUID(payload["sub"])
     except (InvalidTokenError, KeyError, ValueError):
         raise credentials_error from None
-    user = db.scalar(select(User).where(User.id == user_id, User.active.is_(True)))
+    user = db.scalar(select(User).where(User.id == user_id, bool_filter(User.active, True)))
     if not user:
         raise credentials_error
     return user

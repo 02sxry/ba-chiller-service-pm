@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.db import get_db, lock_query
+from app.core.db import bool_filter, get_db, lock_query
 from app.core.security import AdminUser, CurrentUser, create_access_token, hash_password, verify_password
 from app.domain.enums import AppointmentStatus, NotificationStatus, Role, SyncStatus
 from app.domain.models import (
@@ -142,7 +142,7 @@ def health(db: Db) -> HealthResponse:
 @router.post("/auth/token", response_model=TokenResponse, tags=["auth"])
 def login(request: LoginRequest, db: Db) -> TokenResponse:
     username = request.username.strip().lower()
-    user = db.scalar(select(User).where(or_(User.username == username, User.email == username), User.active.is_(True)))
+    user = db.scalar(select(User).where(or_(User.username == username, User.email == username), bool_filter(User.active, True)))
     if not user or not verify_password(request.password, user.password_hash):
         raise HTTPException(status_code=401, detail="User ID หรือรหัสผ่านไม่ถูกต้อง")
     return TokenResponse(access_token=create_access_token(user))
@@ -197,7 +197,7 @@ def update_user(user_id: uuid.UUID, request: UserUpdateRequest, db: Db, admin: A
     if user.id == admin.id and updates.get("role") == Role.VIEWER:
         raise HTTPException(status_code=409, detail="ไม่สามารถลดสิทธิ์ของตัวเองขณะใช้งานอยู่")
     if updates.get("role") == Role.VIEWER and user.role == Role.ADMIN:
-        active_admins = db.scalar(select(func.count()).select_from(User).where(User.role == Role.ADMIN, User.active.is_(True))) or 0
+        active_admins = db.scalar(select(func.count()).select_from(User).where(User.role == Role.ADMIN, bool_filter(User.active, True))) or 0
         if active_admins <= 1:
             raise HTTPException(status_code=409, detail="ต้องมี Admin ที่ใช้งานได้อย่างน้อย 1 คน")
     old_values = {"display_name": user.display_name, "role": user.role.value, "active": user.active}
@@ -235,7 +235,7 @@ def deactivate_user(user_id: uuid.UUID, db: Db, admin: AdminUser) -> User:
     if user.id == admin.id:
         raise HTTPException(status_code=409, detail="ไม่สามารถปิดใช้งานตัวเองได้")
     if user.role == Role.ADMIN:
-        active_admins = db.scalar(select(func.count()).select_from(User).where(User.role == Role.ADMIN, User.active.is_(True))) or 0
+        active_admins = db.scalar(select(func.count()).select_from(User).where(User.role == Role.ADMIN, bool_filter(User.active, True))) or 0
         if active_admins <= 1:
             raise HTTPException(status_code=409, detail="ต้องมี Admin ที่ใช้งานได้อย่างน้อย 1 คน")
     user.active = False
@@ -254,7 +254,7 @@ def delete_user_permanently(user_id: uuid.UUID, db: Db, admin: AdminUser) -> Use
     if user.id == admin.id:
         raise HTTPException(status_code=409, detail="ไม่สามารถลบบัญชีที่กำลังใช้งานอยู่ได้")
     if user.role == Role.ADMIN:
-        active_admins = db.scalar(select(func.count()).select_from(User).where(User.role == Role.ADMIN, User.active.is_(True))) or 0
+        active_admins = db.scalar(select(func.count()).select_from(User).where(User.role == Role.ADMIN, bool_filter(User.active, True))) or 0
         if user.active and active_admins <= 1:
             raise HTTPException(status_code=409, detail="ต้องมี Admin ที่ใช้งานได้อย่างน้อย 1 คน")
 
@@ -426,7 +426,7 @@ def approve_plan_draft_endpoint(
 
 @router.get("/equipment", response_model=list[EquipmentView], tags=["master-data"])
 def list_equipment(db: Db, _: CurrentUser, hospital_id: uuid.UUID | None = None) -> list[Equipment]:
-    query = select(Equipment).where(Equipment.active.is_(True)).order_by(Equipment.equipment_code)
+    query = select(Equipment).where(bool_filter(Equipment.active, True)).order_by(Equipment.equipment_code)
     if hospital_id:
         query = query.where(Equipment.hospital_id == hospital_id)
     return list(db.scalars(query).all())
@@ -434,7 +434,7 @@ def list_equipment(db: Db, _: CurrentUser, hospital_id: uuid.UUID | None = None)
 
 @router.get("/equipment/archive", response_model=list[EquipmentView], tags=["master-data"])
 def list_equipment_archive(db: Db, _: AdminUser) -> list[Equipment]:
-    query = select(Equipment).where(Equipment.active.is_(False)).order_by(Equipment.updated_at.desc())
+    query = select(Equipment).where(bool_filter(Equipment.active, False)).order_by(Equipment.updated_at.desc())
     return list(db.scalars(query).all())
 
 
@@ -498,13 +498,13 @@ def deactivate_equipment(equipment_id: uuid.UUID, db: Db, admin: AdminUser) -> E
     equipment.active = False
 
     active_plans = db.scalars(
-        select(AnnualPlan).where(AnnualPlan.equipment_id == equipment.id, AnnualPlan.active.is_(True))
+        select(AnnualPlan).where(AnnualPlan.equipment_id == equipment.id, bool_filter(AnnualPlan.active, True))
     ).all()
     for plan in active_plans:
         plan.active = False
 
     active_slots = db.scalars(
-        select(PMSlot).where(PMSlot.equipment_id == equipment.id, PMSlot.active.is_(True))
+        select(PMSlot).where(PMSlot.equipment_id == equipment.id, bool_filter(PMSlot.active, True))
     ).all()
     for slot in active_slots:
         slot.active = False
@@ -512,7 +512,7 @@ def deactivate_equipment(equipment_id: uuid.UUID, db: Db, admin: AdminUser) -> E
     open_drafts = db.scalars(
         select(NextYearPlanDraft).where(
             NextYearPlanDraft.equipment_id == equipment.id,
-            NextYearPlanDraft.excluded.is_(False),
+            bool_filter(NextYearPlanDraft.excluded, False),
         )
     ).all()
     for draft in open_drafts:
@@ -660,7 +660,7 @@ def approve_plan_endpoint(request: PlanApproveRequest, db: Db, admin: AdminUser)
 
 @router.get("/slots", response_model=list[SlotView], tags=["planning"])
 def list_slots(db: Db, _: CurrentUser, plan_year: int | None = None) -> list[PMSlot]:
-    query = select(PMSlot).where(PMSlot.active.is_(True)).order_by(PMSlot.plan_year, PMSlot.planned_month)
+    query = select(PMSlot).where(bool_filter(PMSlot.active, True)).order_by(PMSlot.plan_year, PMSlot.planned_month)
     if plan_year:
         query = query.where(PMSlot.plan_year == plan_year)
     return list(db.scalars(query).all())
@@ -995,7 +995,7 @@ async def line_webhook(
             mapping = db.scalar(select(LineGroupMapping).where(
                 LineGroupMapping.line_group_id == group_id,
                 LineGroupMapping.group_type == "HOSPITAL",
-                LineGroupMapping.active.is_(True),
+                bool_filter(LineGroupMapping.active, True),
             )) if group_id else None
             intent = parse_line_question(event["message"].get("text", ""))
             if not mapping or not mapping.hospital_id:
@@ -1039,7 +1039,7 @@ async def line_webhook(
 @router.get("/dashboard", response_model=DashboardMetrics, tags=["reports"])
 def dashboard(db: Db, _: CurrentUser, year: int = Query(default_factory=lambda: datetime.now().year)) -> DashboardMetrics:
     today = datetime.now(UTC).date()
-    total_pm_slots = db.scalar(select(func.count()).select_from(PMSlot).where(PMSlot.plan_year == year, PMSlot.active.is_(True))) or 0
+    total_pm_slots = db.scalar(select(func.count()).select_from(PMSlot).where(PMSlot.plan_year == year, bool_filter(PMSlot.active, True))) or 0
     appointments = list(db.scalars(
         select(Appointment).join(PMSlot).where(PMSlot.plan_year == year)
     ).all())
@@ -1065,7 +1065,7 @@ def dashboard(db: Db, _: CurrentUser, year: int = Query(default_factory=lambda: 
             .outerjoin(Appointment)
             .where(
                 PMSlot.plan_year == year,
-                PMSlot.active.is_(True),
+                bool_filter(PMSlot.active, True),
                 PMSlot.planned_month < today.month,
                 Appointment.id.is_(None),
             )

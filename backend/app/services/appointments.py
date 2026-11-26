@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.db import lock_query
+from app.core.db import bool_filter, lock_query
 from app.domain.enums import AppointmentStatus, ChangeSource, NotificationStatus
 from app.domain.models import (
     ActionToken,
@@ -84,7 +84,7 @@ def approve_appointment(db: Session, request: AppointmentApproveRequest, admin: 
         select(LineGroupMapping).where(
             LineGroupMapping.hospital_id == request.hospital_id,
             LineGroupMapping.group_type == "HOSPITAL",
-            LineGroupMapping.active.is_(True),
+            bool_filter(LineGroupMapping.active, True),
         )
     )
     if not mapping:
@@ -156,7 +156,7 @@ def _validate_action_token(
             LineGroupMapping.line_group_id == line_group_id,
             LineGroupMapping.hospital_id == appointment.hospital_id,
             LineGroupMapping.group_type == "HOSPITAL",
-            LineGroupMapping.active.is_(True),
+            bool_filter(LineGroupMapping.active, True),
         )
     )
     if not mapping:
@@ -252,7 +252,7 @@ def technician_date_change(
         select(LineGroupMapping).where(
             LineGroupMapping.hospital_id == appointment.hospital_id,
             LineGroupMapping.group_type == "HOSPITAL",
-            LineGroupMapping.active.is_(True),
+            bool_filter(LineGroupMapping.active, True),
         )
     )
     if not mapping:
