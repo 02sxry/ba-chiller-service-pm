@@ -120,8 +120,9 @@ export function PlannerPage() {
   const [startMonth, setStartMonth] = useState(1)
   const [year, setYear] = useState(currentYear + 1)
   const hospitalNames = new Map(hospitals.data?.map((hospital) => [hospital.id, hospital.hospital_name]))
+  const activeHospitalIds = new Set(hospitals.data?.map((hospital) => hospital.id))
   const preview = useMutation({
-    mutationFn: () => api<{ display_months_th: string[] }>('/plans/preview', {
+    mutationFn: () => api<{ display_periods_th: string[] }>('/plans/preview', {
       method: 'POST', body: JSON.stringify({ plan_year: year, annual_frequency: frequency, planning_mode: 'AUTOMATIC', start_month: startMonth }),
     }),
   })
@@ -142,7 +143,7 @@ export function PlannerPage() {
     <section className="page-heading"><div><p className="eyebrow">ANNUAL PLANNING</p><h1>วางแผน PM รายปี</h1><p>Preview ไม่เขียนข้อมูลจริงจนกว่า Admin จะเลือกอุปกรณ์และอนุมัติ</p></div></section>
     <section className="planner-layout">
       <form className="panel form-panel" onSubmit={(event) => { event.preventDefault(); preview.mutate() }}>
-        <label>โรงพยาบาลและอุปกรณ์<select value={equipmentId} onChange={(event) => setEquipmentId(event.target.value)} required><option value="">เลือกโรงพยาบาลและอุปกรณ์</option>{equipment.data?.filter((item) => item.active).map((item) => <option value={item.id} key={item.id}>{equipmentPlanLabel(item, hospitalNames.get(item.hospital_id))}</option>)}</select></label>
+        <label>โรงพยาบาลและอุปกรณ์<select value={equipmentId} onChange={(event) => setEquipmentId(event.target.value)} required><option value="">เลือกโรงพยาบาลและอุปกรณ์</option>{equipment.data?.filter((item) => item.active && activeHospitalIds.has(item.hospital_id)).map((item) => <option value={item.id} key={item.id}>{equipmentPlanLabel(item, hospitalNames.get(item.hospital_id))}</option>)}</select></label>
         <label>ปีแผน (พ.ศ.)<input type="number" value={year + 543} onChange={(event) => setYear(Number(event.target.value) - 543)} /></label>
         <label>จำนวนครั้งต่อปี<select value={frequency} onChange={(event) => setFrequency(Number(event.target.value))}>{[1,2,3,4,6,12].map((value) => <option key={value}>{value}</option>)}</select></label>
         <label>เดือนเริ่มกระจาย<select value={startMonth} onChange={(event) => setStartMonth(Number(event.target.value))}>{['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'].map((month, index) => <option value={index + 1} key={month}>{month}</option>)}</select></label>
@@ -151,7 +152,7 @@ export function PlannerPage() {
         {approve.isSuccess && <div className="success-note">อนุมัติแผนและสร้าง Slots สำเร็จ</div>}
         {approve.error && <div className="login-error">{approve.error.message}</div>}
       </form>
-      <article className="panel preview-panel"><span className="panel-kicker">PLAN PREVIEW</span><h2>เดือนที่เสนอ</h2>{preview.data ? <div className="month-grid">{preview.data.display_months_th.map((month) => <span key={month}>{month}</span>)}</div> : <p>กรอกข้อมูลแล้วกดคำนวณเพื่อดูตัวอย่าง</p>}<div className="scope-note">เดือนเริ่มต้นควบคุมการกระจายภายในปี เมื่อวนข้ามธันวาคม ลำดับแสดงผลจะเรียงตามปฏิทิน</div></article>
+      <article className="panel preview-panel"><span className="panel-kicker">PLAN PREVIEW</span><h2>รอบที่เสนอ</h2>{preview.data ? <div className="month-grid">{preview.data.display_periods_th.map((period) => <span key={period}>{period}</span>)}</div> : <p>กรอกข้อมูลแล้วกดคำนวณเพื่อดูตัวอย่าง</p>}<div className="scope-note">ระบบนับต่อเนื่องจากเดือนเริ่มต้นเป็นเวลา 12 เดือน และแสดงปีให้ชัดเจนเมื่อรอบข้ามปี</div></article>
     </section>
   </>
 }
@@ -177,12 +178,13 @@ export function EquipmentPage() {
     },
   })
   const hospitalNames = new Map(hospitals.data?.map((hospital) => [hospital.id, hospital.hospital_name]))
+  const activeHospitalIds = new Set(hospitals.data?.map((hospital) => hospital.id))
   return <>
     <section className="page-heading"><div><p className="eyebrow">MASTER DATA</p><h1>ฐานข้อมูลอุปกรณ์</h1><p>ระบบสร้างรหัสภายในให้อัตโนมัติ ผู้ใช้ไม่ต้องกรอกรหัส · อุปกรณ์ที่เก็บแล้วจะอยู่ใน Archive และจะปิดแผน PM ที่ยังใช้งานอยู่ตามไปด้วย</p></div></section>
     <section className="workspace-grid">
       <article className="panel">
-        <div className="panel-header"><h2>รายการอุปกรณ์</h2><span className="count-badge">{equipment.data?.filter((item) => item.active).length ?? 0}</span></div>
-        <div className="data-list">{equipment.data?.filter((item) => item.active).map((item) => <div key={item.id}><p><strong>{item.equipment_name}</strong><small>{hospitalNames.get(item.hospital_id) ?? 'ไม่พบโรงพยาบาล'}{item.model ? ` · รุ่น ${item.model}` : ''}{item.serial_number ? ` · เลขเครื่อง ${item.serial_number}` : ''}{item.room_location ? ` · สถานที่ ${item.room_location}` : ''}</small></p><i className="active-state">ใช้งาน</i>{me.data?.role === 'ADMIN' && <button className="text-button" type="button" onClick={() => window.confirm(`เก็บ ${item.equipment_name} เข้า Archive ใช่หรือไม่`) && archive.mutate(item.id)}>เก็บเข้า Archive</button>}</div>)}</div>
+        <div className="panel-header"><h2>รายการอุปกรณ์</h2><span className="count-badge">{equipment.data?.filter((item) => item.active && activeHospitalIds.has(item.hospital_id)).length ?? 0}</span></div>
+        <div className="data-list">{equipment.data?.filter((item) => item.active && activeHospitalIds.has(item.hospital_id)).map((item) => <div key={item.id}><p><strong>{item.equipment_name}</strong><small>{hospitalNames.get(item.hospital_id) ?? 'ไม่พบโรงพยาบาล'}{item.model ? ` · รุ่น ${item.model}` : ''}{item.serial_number ? ` · เลขเครื่อง ${item.serial_number}` : ''}{item.room_location ? ` · สถานที่ ${item.room_location}` : ''}</small></p><i className="active-state">ใช้งาน</i>{me.data?.role === 'ADMIN' && <button className="text-button" type="button" onClick={() => window.confirm(`เก็บ ${item.equipment_name} เข้า Archive ใช่หรือไม่`) && archive.mutate(item.id)}>เก็บเข้า Archive</button>}</div>)}</div>
       </article>
       <form className="panel form-panel" onSubmit={(event) => { event.preventDefault(); create.mutate() }}>
         <div><span className="panel-kicker">ADD EQUIPMENT</span><h2>เพิ่มอุปกรณ์</h2></div>
@@ -200,7 +202,7 @@ export function EquipmentPage() {
 
 export function EquipmentArchivePage() {
   const client = useQueryClient()
-  const hospitals = useQuery({ queryKey: ['hospitals', 'active'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
+  const hospitals = useQuery({ queryKey: ['hospitals', 'all'], queryFn: () => api<Hospital[]>('/hospitals') })
   const archived = useQuery({ queryKey: ['equipment-archive'], queryFn: () => api<Equipment[]>('/equipment/archive') })
   const remove = useMutation({
     mutationFn: (id: string) => api<Equipment>(`/equipment/${id}/permanent`, { method: 'DELETE' }),
@@ -227,6 +229,9 @@ export function DatabaseEntryPage() {
     queryKey: ["equipment"],
     queryFn: () => api<Equipment[]>("/equipment"),
   });
+  const activeHospitalIds = new Set(
+    hospitals.data?.map((hospital) => hospital.id),
+  );
   const [hospitalForm, setHospitalForm] = useState({ hospital_name: "" });
   const [equipmentForm, setEquipmentForm] = useState({
     hospital_id: "",
@@ -332,7 +337,7 @@ export function DatabaseEntryPage() {
   });
   const previewPlan = useMutation({
     mutationFn: () =>
-      api<{ display_months_th: string[] }>("/plans/preview", {
+      api<{ display_periods_th: string[] }>("/plans/preview", {
         method: "POST",
         body: JSON.stringify({
           plan_year: planForm.year,
@@ -341,7 +346,7 @@ export function DatabaseEntryPage() {
           start_month: planForm.start_month,
         }),
       }),
-    onSuccess: (data) => setPlanPreview(data.display_months_th),
+    onSuccess: (data) => setPlanPreview(data.display_periods_th),
   });
   const createPlan = useMutation({
     mutationFn: () =>
@@ -589,7 +594,10 @@ export function DatabaseEntryPage() {
             >
               <option value="">เลือกโรงพยาบาลและอุปกรณ์</option>
               {equipment.data
-                ?.filter((item) => item.active)
+                ?.filter(
+                  (item) =>
+                    item.active && activeHospitalIds.has(item.hospital_id),
+                )
                 .map((item) => (
                   <option value={item.id} key={item.id}>
                     {equipmentPlanLabel(
@@ -726,12 +734,18 @@ export function DatabaseEntryPage() {
           <div className="panel-header">
             <h2>อุปกรณ์ที่มีอยู่</h2>
             <span className="count-badge">
-              {equipment.data?.filter((item) => item.active).length ?? 0}
+              {equipment.data?.filter(
+                (item) =>
+                  item.active && activeHospitalIds.has(item.hospital_id),
+              ).length ?? 0}
             </span>
           </div>
           <div className="data-list">
             {equipment.data
-              ?.filter((item) => item.active)
+              ?.filter(
+                (item) =>
+                  item.active && activeHospitalIds.has(item.hospital_id),
+              )
               .map((item) => (
                 <div key={item.id}>
                   <p>
@@ -829,6 +843,9 @@ export function SlotsPage() {
   ];
   const equipmentById = new Map(equipment.data?.map((item) => [item.id, item]));
   const hospitalById = new Map(hospitals.data?.map((item) => [item.id, item]));
+  const activeHospitalIds = new Set(
+    hospitals.data?.filter((item) => item.active).map((item) => item.id),
+  );
   const years = [
     ...new Set(slots.data?.map((slot) => slot.plan_year) ?? []),
   ].sort((a, b) => a - b);
@@ -846,7 +863,12 @@ export function SlotsPage() {
   const models = [
     ...new Set(
       equipment.data
-        ?.filter((item) => !hospitalId || item.hospital_id === hospitalId)
+        ?.filter(
+          (item) =>
+            item.active &&
+            activeHospitalIds.has(item.hospital_id) &&
+            (!hospitalId || item.hospital_id === hospitalId),
+        )
         .map((item) => item.model)
         .filter((item): item is string => Boolean(item)) ?? [],
     ),
@@ -869,7 +891,7 @@ export function SlotsPage() {
               onChange={(event) => setHospitalId(event.target.value)}
             >
               <option value="">ทั้งหมด</option>
-              {hospitals.data?.map((item) => (
+              {hospitals.data?.filter((item) => item.active).map((item) => (
                 <option value={item.id} key={item.id}>
                   {item.hospital_name}
                 </option>
@@ -885,7 +907,10 @@ export function SlotsPage() {
               <option value="">ทั้งหมด</option>
               {equipment.data
                 ?.filter(
-                  (item) => !hospitalId || item.hospital_id === hospitalId,
+                  (item) =>
+                    item.active &&
+                    activeHospitalIds.has(item.hospital_id) &&
+                    (!hospitalId || item.hospital_id === hospitalId),
                 )
                 .map((item) => (
                   <option value={item.id} key={item.id}>
@@ -1013,6 +1038,9 @@ export function AppointmentsPage({
     queryKey: ["hospitals", "all"],
     queryFn: () => api<Hospital[]>("/hospitals"),
   });
+  const activeHospitalIds = new Set(
+    hospitals.data?.filter((item) => item.active).map((item) => item.id),
+  );
   const [equipmentId, setEquipmentId] = useState("");
   const [hospitalId, setHospitalId] = useState("");
   const visible =
@@ -1039,7 +1067,7 @@ export function AppointmentsPage({
               onChange={(event) => setHospitalId(event.target.value)}
             >
               <option value="">ทั้งหมด</option>
-              {hospitals.data?.map((item) => (
+              {hospitals.data?.filter((item) => item.active).map((item) => (
                 <option value={item.id} key={item.id}>
                   {item.hospital_name}
                 </option>
@@ -1055,7 +1083,10 @@ export function AppointmentsPage({
               <option value="">ทั้งหมด</option>
               {equipment.data
                 ?.filter(
-                  (item) => !hospitalId || item.hospital_id === hospitalId,
+                  (item) =>
+                    item.active &&
+                    activeHospitalIds.has(item.hospital_id) &&
+                    (!hospitalId || item.hospital_id === hospitalId),
                 )
                 .map((item) => (
                   <option value={item.id} key={item.id}>
@@ -1177,7 +1208,7 @@ function IntakeApprovalForm({ selection, onSuccess }: { selection: IntakeSelecti
       setSlotId('')
     }}>
       <option value="">เลือกอุปกรณ์</option>
-      {equipment.data?.filter((item) => item.hospital_id === hospitalId).map((item) =>
+      {equipment.data?.filter((item) => item.active && item.hospital_id === hospitalId).map((item) =>
         <option value={item.id} key={item.id}>{[item.equipment_name, item.model, item.serial_number].filter(Boolean).join(' · ')}</option>
       )}
     </select></label>

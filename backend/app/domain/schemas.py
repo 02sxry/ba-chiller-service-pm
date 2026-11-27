@@ -112,6 +112,7 @@ class PlanPreviewResponse(BaseModel):
     annual_frequency: int
     planned_months: list[int]
     display_months_th: list[str]
+    display_periods_th: list[str]
 
 
 class PlanApproveRequest(PlanPreviewRequest):

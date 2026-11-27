@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db import bool_filter
 from app.domain.enums import PlanningMode
-from app.domain.models import AnnualPlan, Equipment, NextYearPlanDraft, PMSlot, User
+from app.domain.models import AnnualPlan, Equipment, Hospital, NextYearPlanDraft, PMSlot, User
 from app.domain.schemas import PlanApproveRequest, PlanPreviewRequest
 from app.services.audit import record_audit
 
@@ -22,33 +22,45 @@ class PlanningError(ValueError):
     pass
 
 
-def calculate_months(data: PlanPreviewRequest) -> list[int]:
+def calculate_periods(data: PlanPreviewRequest) -> list[tuple[int, int]]:
     if data.planning_mode == PlanningMode.AUTOMATIC:
         if data.annual_frequency not in AUTOMATIC_FREQUENCIES:
             raise PlanningError("โหมดอัตโนมัติรองรับความถี่ 1, 2, 3, 4, 6 หรือ 12 ครั้งต่อปี")
         if data.start_month is None:
             raise PlanningError("โหมดอัตโนมัติต้องระบุเดือนเริ่มต้น")
         interval = 12 // data.annual_frequency
-        months = {
-            ((data.start_month - 1 + index * interval) % 12) + 1
+        return [
+            (
+                data.plan_year + (data.start_month - 1 + index * interval) // 12,
+                ((data.start_month - 1 + index * interval) % 12) + 1,
+            )
             for index in range(data.annual_frequency)
-        }
-    else:
-        months = set(data.planned_months or [])
-        if len(months) != len(data.planned_months or []):
-            raise PlanningError("เดือนที่วางแผนต้องไม่ซ้ำ")
-        if len(months) != data.annual_frequency:
-            raise PlanningError("จำนวนเดือนต้องเท่ากับความถี่ต่อปี")
-    if any(month < 1 or month > 12 for month in months):
+        ]
+
+    requested_months = data.planned_months or []
+    months = set(requested_months)
+    if len(months) != len(requested_months):
+        raise PlanningError("เดือนที่วางแผนต้องไม่ซ้ำ")
+    if len(months) != data.annual_frequency:
+        raise PlanningError("จำนวนเดือนต้องเท่ากับความถี่ต่อปี")
+    if any(month < 1 or month > 12 for month in requested_months):
         raise PlanningError("เดือนต้องอยู่ระหว่าง 1 ถึง 12")
-    return sorted(months)
+    return [(data.plan_year, month) for month in sorted(requested_months)]
+
+
+def calculate_months(data: PlanPreviewRequest) -> list[int]:
+    return [month for _, month in calculate_periods(data)]
 
 
 def approve_plan(db: Session, request: PlanApproveRequest, admin: User) -> AnnualPlan:
     equipment = db.get(Equipment, request.equipment_id)
     if not equipment or not equipment.active:
         raise PlanningError("ไม่พบอุปกรณ์ที่ใช้งานอยู่")
-    months = calculate_months(request)
+    hospital = db.get(Hospital, equipment.hospital_id)
+    if not hospital or not hospital.active:
+        raise PlanningError("โรงพยาบาลของอุปกรณ์นี้ปิดใช้งานแล้ว")
+    periods = calculate_periods(request)
+    months = [month for _, month in periods]
     plan = AnnualPlan(
         equipment_id=request.equipment_id,
         plan_year=request.plan_year,
@@ -59,8 +71,8 @@ def approve_plan(db: Session, request: PlanApproveRequest, admin: User) -> Annua
         approved_by_id=admin.id,
     )
     plan.slots = [
-        PMSlot(equipment_id=request.equipment_id, plan_year=request.plan_year, planned_month=month)
-        for month in months
+        PMSlot(equipment_id=request.equipment_id, plan_year=year, planned_month=month)
+        for year, month in periods
     ]
     db.add(plan)
     try:
@@ -73,7 +85,11 @@ def approve_plan(db: Session, request: PlanApproveRequest, admin: User) -> Annua
         action="ANNUAL_PLAN_APPROVED",
         entity_type="annual_plan",
         entity_id=plan.id,
-        new_values={"year": plan.plan_year, "months": months},
+        new_values={
+            "year": plan.plan_year,
+            "months": months,
+            "periods": [{"year": year, "month": month} for year, month in periods],
+        },
     )
     return plan
 

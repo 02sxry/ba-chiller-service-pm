@@ -67,6 +67,8 @@ Operational integration milestone: Google provider adapter และ container b
 - เพิ่ม Admin user management: แก้ไขชื่อ/สิทธิ์/รหัสผ่าน และปิดใช้งาน User พร้อมป้องกันปิดตัวเองหรือปิด Admin คนสุดท้าย
 - หน้าโรงพยาบาลแสดงเฉพาะรายการที่ยังใช้งานอยู่ รายการที่ Admin ปิดใช้งานจะไม่แสดง และแยก cache รายการ active/all ป้องกันข้อมูลข้ามหน้าปะปนกัน
 - ช่องเลือกสร้างแผน PM แสดงโรงพยาบาล ชื่ออุปกรณ์ รุ่น เลขเครื่อง และสถานที่ติดตั้ง พร้อมแสดงเลขเครื่องในหน้ารายการอุปกรณ์
+- แผนอัตโนมัตินับรอบต่อเนื่องข้ามปีตามเดือนเริ่มต้น พร้อมแสดงเดือน/ปี พ.ศ. ใน Preview และป้องกันสร้างแผนให้อุปกรณ์ของโรงพยาบาลที่ปิดใช้งาน
+- Dropdown โรงพยาบาลและอุปกรณ์ทุกหน้าปฏิบัติงานแสดงเฉพาะข้อมูลที่ใช้งานอยู่ ขณะที่หน้าประวัติยังอ่านชื่อข้อมูลเดิมได้
 
 ## Tests executed
 
@@ -100,6 +102,7 @@ Operational integration milestone: Google provider adapter และ container b
 - Backend compile และ frontend production build ผ่านหลังเพิ่ม API แก้ไข/ปิดใช้งานและ Admin-only database entry page
 - Frontend production build ผ่านหลังซ่อนโรงพยาบาลที่ปิดใช้งานและแยก React Query cache ตามขอบเขตข้อมูล
 - Frontend production build ผ่านหลังเพิ่มข้อมูลระบุตัวอุปกรณ์ในหน้ารายการและตัวเลือกสร้างแผน PM
+- Unit tests สูตรรอบข้ามปีและสิทธิ์โรงพยาบาลปิดใช้งานผ่าน 10 tests, Ruff ผ่าน และ Frontend production build ผ่าน
 
 ## ข้อจำกัดและงานคงเหลือ
 

@@ -98,7 +98,7 @@ from app.services.planning import (
     PlanningError,
     approve_plan,
     bulk_approve_drafts,
-    calculate_months,
+    calculate_periods,
     generate_next_year_drafts,
 )
 
@@ -635,14 +635,16 @@ def create_line_group(request: LineGroupCreate, db: Db, admin: AdminUser) -> Lin
 @router.post("/plans/preview", response_model=PlanPreviewResponse, tags=["planning"])
 def preview_plan(request: PlanPreviewRequest, _: CurrentUser) -> PlanPreviewResponse:
     try:
-        months = calculate_months(request)
+        periods = calculate_periods(request)
     except PlanningError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    months = [month for _, month in periods]
     return PlanPreviewResponse(
         plan_year=request.plan_year,
         annual_frequency=request.annual_frequency,
         planned_months=months,
         display_months_th=[THAI_MONTHS[month - 1] for month in months],
+        display_periods_th=[f"{THAI_MONTHS[month - 1]} {year + 543}" for year, month in periods],
     )
 
 
