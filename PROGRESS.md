@@ -66,6 +66,7 @@ Operational integration milestone: Google provider adapter และ container b
 - ปรับ local password policy เป็นอย่างน้อย 4 ตัว และเพิ่มคำสั่ง `ensure-admin` สำหรับซ่อม User ID `admin` ให้เป็น ADMIN
 - เพิ่ม Admin user management: แก้ไขชื่อ/สิทธิ์/รหัสผ่าน และปิดใช้งาน User พร้อมป้องกันปิดตัวเองหรือปิด Admin คนสุดท้าย
 - หน้าโรงพยาบาลแสดงเฉพาะรายการที่ยังใช้งานอยู่ รายการที่ Admin ปิดใช้งานจะไม่แสดง และแยก cache รายการ active/all ป้องกันข้อมูลข้ามหน้าปะปนกัน
+- ช่องเลือกสร้างแผน PM แสดงโรงพยาบาล ชื่ออุปกรณ์ รุ่น เลขเครื่อง และสถานที่ติดตั้ง พร้อมแสดงเลขเครื่องในหน้ารายการอุปกรณ์
 
 ## Tests executed
 
@@ -98,6 +99,7 @@ Operational integration milestone: Google provider adapter และ container b
 - Google workbook template: สร้างไฟล์ XLSX ได้จริง ตรวจสอบชื่อชีตและหัวคอลัมน์ครบ รวมชีต `เริ่มที่นี่`
 - Backend compile และ frontend production build ผ่านหลังเพิ่ม API แก้ไข/ปิดใช้งานและ Admin-only database entry page
 - Frontend production build ผ่านหลังซ่อนโรงพยาบาลที่ปิดใช้งานและแยก React Query cache ตามขอบเขตข้อมูล
+- Frontend production build ผ่านหลังเพิ่มข้อมูลระบุตัวอุปกรณ์ในหน้ารายการและตัวเลือกสร้างแผน PM
 
 ## ข้อจำกัดและงานคงเหลือ
 

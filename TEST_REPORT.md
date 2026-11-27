@@ -122,3 +122,11 @@ Docker build ครั้งแรกใน execution environment ติด prox
 - `git diff --check` ผ่าน
 - `npm run build` ผ่าน TypeScript และ Vite production build
 
+## ตรวจข้อมูลระบุตัวอุปกรณ์ในแผน PM — 27 พฤศจิกายน 2026
+
+- ตัวเลือกสร้างแผน PM ทั้งสองหน้าแสดงโรงพยาบาล ชื่ออุปกรณ์ รุ่น เลขเครื่อง และสถานที่ติดตั้ง
+- แสดงเฉพาะอุปกรณ์ที่ยังใช้งานอยู่ในหน้าวางแผน PM
+- หน้าฐานข้อมูลอุปกรณ์และรายการในหน้า Admin แสดงเลขเครื่องและสถานที่ติดตั้ง
+- `git diff --check` ผ่าน
+- `npm run build` ผ่าน TypeScript และ Vite production build
+
