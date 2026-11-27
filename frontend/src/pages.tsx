@@ -79,7 +79,7 @@ function normalizeEquipmentNumber(form: { equipment_name: string; serial_number:
 
 export function HospitalsPage() {
   const client = useQueryClient()
-  const query = useQuery({ queryKey: ['hospitals'], queryFn: () => api<Hospital[]>('/hospitals') })
+  const query = useQuery({ queryKey: ['hospitals', 'active'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
   const [form, setForm] = useState({ hospital_code: '', hospital_name: '' })
   const create = useMutation({
     mutationFn: () => api<Hospital>('/hospitals', { method: 'POST', body: JSON.stringify({ ...form, hospital_code: form.hospital_code.trim() || null }) }),
@@ -146,7 +146,7 @@ export function PlannerPage() {
 
 export function EquipmentPage() {
   const client = useQueryClient()
-  const hospitals = useQuery({ queryKey: ['hospitals'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
+  const hospitals = useQuery({ queryKey: ['hospitals', 'active'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
   const equipment = useQuery({ queryKey: ['equipment'], queryFn: () => api<Equipment[]>('/equipment') })
   const me = useQuery({ queryKey: ['current-user'], queryFn: () => api<{ role: string }>('/auth/me') })
   const [form, setForm] = useState({ hospital_id: '', equipment_name: '', model: '', serial_number: '', room_location: '' })
@@ -188,7 +188,7 @@ export function EquipmentPage() {
 
 export function EquipmentArchivePage() {
   const client = useQueryClient()
-  const hospitals = useQuery({ queryKey: ['hospitals'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
+  const hospitals = useQuery({ queryKey: ['hospitals', 'active'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
   const archived = useQuery({ queryKey: ['equipment-archive'], queryFn: () => api<Equipment[]>('/equipment/archive') })
   const remove = useMutation({
     mutationFn: (id: string) => api<Equipment>(`/equipment/${id}/permanent`, { method: 'DELETE' }),
@@ -207,7 +207,7 @@ export function EquipmentArchivePage() {
 
 export function DatabaseEntryPage() {
   const client = useQueryClient()
-  const hospitals = useQuery({ queryKey: ['hospitals'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
+  const hospitals = useQuery({ queryKey: ['hospitals', 'active'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
   const equipment = useQuery({ queryKey: ['equipment'], queryFn: () => api<Equipment[]>('/equipment') })
   const [hospitalForm, setHospitalForm] = useState({ hospital_name: '' })
   const [equipmentForm, setEquipmentForm] = useState({ hospital_id: '', equipment_name: '', model: '', serial_number: '', room_location: '' })
@@ -262,7 +262,7 @@ type Slot = { id: string; equipment_id: string; yearly_plan_id: string; plan_yea
 export function SlotsPage() {
   const slots = useQuery({ queryKey: ['slots'], queryFn: () => api<Slot[]>('/slots') })
   const equipment = useQuery({ queryKey: ['equipment'], queryFn: () => api<Equipment[]>('/equipment') })
-  const hospitals = useQuery({ queryKey: ['hospitals'], queryFn: () => api<Hospital[]>('/hospitals') })
+  const hospitals = useQuery({ queryKey: ['hospitals', 'all'], queryFn: () => api<Hospital[]>('/hospitals') })
   const [equipmentId, setEquipmentId] = useState('')
   const [hospitalId, setHospitalId] = useState('')
   const [model, setModel] = useState('')
@@ -290,7 +290,7 @@ const statusThai: Record<string, string> = { DRAFT: 'ร่าง', PENDING_APPR
 export function AppointmentsPage({ title = 'ปฏิทินนัดหมาย', status }: { title?: string; status?: string }) {
   const query = useQuery({ queryKey: ['appointments', status], queryFn: () => api<AppointmentSummary[]>(`/appointments${status ? `?status=${status}` : ''}`) })
   const equipment = useQuery({ queryKey: ['equipment'], queryFn: () => api<Equipment[]>('/equipment') })
-  const hospitals = useQuery({ queryKey: ['hospitals'], queryFn: () => api<Hospital[]>('/hospitals') })
+  const hospitals = useQuery({ queryKey: ['hospitals', 'all'], queryFn: () => api<Hospital[]>('/hospitals') })
   const [equipmentId, setEquipmentId] = useState('')
   const [hospitalId, setHospitalId] = useState('')
   const visible = query.data?.filter((item) => (!equipmentId || item.equipment_id === equipmentId) && (!hospitalId || item.hospital_id === hospitalId)) ?? []
@@ -431,7 +431,7 @@ export function GoogleSyncPage() {
 type LineGroup = { id: string; line_group_id: string; group_type: string; hospital_id: string | null; active: boolean }
 export function LineGroupsPage() {
   const client = useQueryClient()
-  const hospitals = useQuery({ queryKey: ['hospitals'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
+  const hospitals = useQuery({ queryKey: ['hospitals', 'active'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
   const groups = useQuery({ queryKey: ['line-groups'], queryFn: () => api<LineGroup[]>('/line-groups') })
   const [form, setForm] = useState({ line_group_id: '', group_type: 'HOSPITAL', hospital_id: '' })
   const create = useMutation({ mutationFn: () => api('/line-groups', { method: 'POST', body: JSON.stringify({ ...form, hospital_id: form.group_type === 'HOSPITAL' ? form.hospital_id : null }) }), onSuccess: () => { setForm({ line_group_id: '', group_type: 'HOSPITAL', hospital_id: '' }); client.invalidateQueries({ queryKey: ['line-groups'] }) } })

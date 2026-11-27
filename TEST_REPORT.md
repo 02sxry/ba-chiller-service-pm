@@ -115,3 +115,10 @@ Docker build ครั้งแรกใน execution environment ติด prox
 
 หลังเพิ่ม User management endpoints และ UI: backend compile, `git diff --check` และ frontend production build ผ่าน; ยังไม่ได้รัน integration test ที่ต้องใช้ SQL Server จริง
 
+## ตรวจการซ่อนโรงพยาบาลที่ปิดใช้งาน — 27 พฤศจิกายน 2026
+
+- หน้าโรงพยาบาลเรียก `/hospitals?active=true` จึงไม่แสดงรายการที่ปิดใช้งานแล้ว
+- แยก React Query key ระหว่างรายการ `active` และ `all` ป้องกัน cache จากหน้าประวัติทำให้รายการปิดใช้งานกลับมาแสดง
+- `git diff --check` ผ่าน
+- `npm run build` ผ่าน TypeScript และ Vite production build
+
