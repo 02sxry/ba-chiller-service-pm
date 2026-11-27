@@ -998,7 +998,17 @@ async def line_webhook(
                 bool_filter(LineGroupMapping.active, True),
             )) if group_id else None
             intent = parse_line_question(event["message"].get("text", ""))
-            if not mapping or not mapping.hospital_id:
+            if not mapping:
+                action_results.append({"event_id": event_id, "result": "UNAUTHORIZED_GROUP"})
+            elif mapping.group_type == "TECHNICIAN":
+                intake = create_text_intake(
+                    db,
+                    event_id,
+                    event["message"].get("text", ""),
+                    datetime.now(UTC),
+                )
+                action_results.append({"event_id": event_id, "result": f"TECHNICIAN_INTAKE_{intake.state.value}"})
+            elif not mapping.hospital_id:
                 action_results.append({"event_id": event_id, "result": "UNAUTHORIZED_GROUP"})
             elif intent == LineQuestionIntent.HELP:
                 db.add(NotificationJob(

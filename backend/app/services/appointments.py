@@ -41,6 +41,7 @@ def _queue_notification(
     revision: AppointmentRevision,
     action_token: str | None = None,
 ) -> NotificationJob:
+    equipment = db.get(Equipment, appointment.equipment_id)
     actions = None
     if action_token:
         actions = {
@@ -58,6 +59,8 @@ def _queue_notification(
             "revision_id": str(revision.id),
             "scheduled_date": revision.scheduled_date.isoformat(),
             "service_type": revision.service_type,
+            "equipment_name": equipment.equipment_name if equipment else None,
+            "room_location": equipment.room_location if equipment else None,
             "actions": actions,
         },
         status=NotificationStatus.PENDING,

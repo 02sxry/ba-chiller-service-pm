@@ -36,29 +36,111 @@ def normalize_year(year: int) -> int:
     return year
 
 
+def _infer_year(day: int, month: int, received_at: datetime) -> int:
+    """Infer the next upcoming year for shorthand dates without a year."""
+    bangkok_date = received_at.astimezone(ZoneInfo("Asia/Bangkok")).date()
+    year = bangkok_date.year
+    try:
+        candidate = date(year, month, day)
+    except ValueError:
+        return year
+    return year + 1 if candidate < bangkok_date else year
+
+
 def parse_thai_date(text: str, received_at: datetime) -> tuple[date | None, bool]:
     bangkok = received_at.astimezone(ZoneInfo("Asia/Bangkok"))
     if "พรุ่งนี้" in text:
         return (bangkok + timedelta(days=1)).date(), False
-    numeric = re.search(r"(?<!\d)(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})(?!\d)", text)
+    numeric = re.search(r"(?<!\d)(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?(?!\d)", text)
     if numeric:
-        day, month, year = map(int, numeric.groups())
+        day_text, month_text, year_text = numeric.groups()
+        day, month = int(day_text), int(month_text)
+        year = normalize_year(int(year_text)) if year_text else _infer_year(day, month, received_at)
         try:
-            return date(normalize_year(year), month, day), False
+            return date(year, month, day), False
         except ValueError:
             return None, True
     month_pattern = "|".join(sorted((re.escape(name) for name in THAI_MONTH_NAMES), key=len, reverse=True))
-    named = re.search(rf"(?<!\d)(\d{{1,2}})\s*({month_pattern})\s*(\d{{2,4}})(?!\d)", text)
+    named = re.search(rf"(?<!\d)(\d{{1,2}})\s*({month_pattern})(?:\s*(\d{{2,4}}))?(?!\d)", text)
     if named:
-        day, month_name, year = named.groups()
+        day_text, month_name, year_text = named.groups()
+        day = int(day_text)
+        month = THAI_MONTH_NAMES[month_name]
+        year = normalize_year(int(year_text)) if year_text else _infer_year(day, month, received_at)
         try:
-            return date(normalize_year(int(year)), THAI_MONTH_NAMES[month_name], int(day)), False
+            return date(year, month, day), False
         except ValueError:
             return None, True
     return None, True
 
 
+def _parse_technician_short_line(text: str, received_at: datetime) -> ParsedSchedule | None:
+    """Parse the easy technician pattern: ``Hospital Equipment # date``."""
+    match = re.match(r"^\s*(?P<details>[^#\n]+?)\s*#\s*(?P<date>[^#\n]+?)\s*$", text)
+    if not match:
+        return None
+
+    details = " ".join(match.group("details").split())
+    date_text = match.group("date").strip()
+    if "|" in details:
+        hospital_text, equipment_text = (part.strip() for part in details.split("|", 1))
+    else:
+        parts = details.split(None, 1)
+        hospital_text = parts[0] if parts else None
+        equipment_text = parts[1].strip() if len(parts) == 2 else None
+    hospital_text = re.sub(r"^(?:โรงพยาบาล|รพ\.?)[\s]*", "", hospital_text or "", flags=re.IGNORECASE).strip()
+    proposed_date, ambiguous_date = parse_thai_date(date_text, received_at)
+    errors: list[str] = []
+    if not proposed_date:
+        errors.append("ไม่สามารถระบุวันนัดได้อย่างชัดเจน")
+    if not hospital_text:
+        errors.append("ไม่สามารถระบุโรงพยาบาลได้")
+    if not equipment_text:
+        errors.append("ไม่สามารถระบุอุปกรณ์ได้")
+    return ParsedSchedule(
+        proposed_date=proposed_date,
+        hospital_text=hospital_text or None,
+        equipment_text=equipment_text or None,
+        notes=text.strip(),
+        ambiguous=ambiguous_date or bool(errors),
+        errors=errors,
+    )
+
+
+def _parse_technician_note_line(text: str) -> ParsedSchedule | None:
+    """Parse a technician row that reports a month/note but no exact date."""
+    match = re.match(r"^\s*(?P<details>[^>\n]+?)\s*>\s*(?P<note>.+?)\s*$", text)
+    if not match:
+        return None
+    details = " ".join(match.group("details").split())
+    if "|" in details:
+        hospital_text, equipment_text = (part.strip() for part in details.split("|", 1))
+    else:
+        parts = details.split(None, 1)
+        hospital_text = parts[0] if parts else None
+        equipment_text = parts[1].strip() if len(parts) == 2 else None
+    hospital_text = re.sub(r"^(?:โรงพยาบาล|รพ\.?)[\s]*", "", hospital_text or "", flags=re.IGNORECASE).strip()
+    errors = ["ไม่สามารถระบุวันนัดได้อย่างชัดเจน"]
+    if not hospital_text:
+        errors.append("ไม่สามารถระบุโรงพยาบาลได้")
+    if not equipment_text:
+        errors.append("ไม่สามารถระบุอุปกรณ์ได้")
+    return ParsedSchedule(
+        hospital_text=hospital_text or None,
+        equipment_text=equipment_text or None,
+        notes=f"{text.strip()} ({match.group('note').strip()})",
+        ambiguous=True,
+        errors=errors,
+    )
+
+
 def parse_line_text(text: str, received_at: datetime) -> ParsedSchedule:
+    short_line = _parse_technician_short_line(text, received_at)
+    if short_line:
+        return short_line
+    note_line = _parse_technician_note_line(text)
+    if note_line:
+        return note_line
     proposed_date, ambiguous = parse_thai_date(text, received_at)
     hospital_match = re.search(r"(?:โรงพยาบาล|รพ\.?)[\s]*([^,\n]+?)(?=\s+(?:เครื่อง|Chiller|ชิลเลอร์|ตรวจ|เข้า)|$)", text, re.I)
     equipment_match = re.search(r"(?:เครื่อง\s*)?((?:Chiller|ชิลเลอร์)[\s\wก-๙.-]*)", text, re.I)
@@ -79,19 +161,41 @@ def parse_line_text(text: str, received_at: datetime) -> ParsedSchedule:
     )
 
 
+def parse_line_texts(text: str, received_at: datetime) -> list[ParsedSchedule]:
+    """Parse one or more technician rows while preserving the original text."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    technician_lines = [line for line in lines if "#" in line or ">" in line]
+    if technician_lines:
+        return [parse_line_text(line, received_at) for line in technician_lines]
+    return [parse_line_text(text, received_at)]
+
+
 def create_text_intake(db: Session, event_id: str, text: str, received_at: datetime) -> ScheduleIntake:
     existing = db.scalar(select(ScheduleIntake).where(ScheduleIntake.source_event_id == event_id))
     if existing:
         return existing
-    parsed = parse_line_text(text, received_at)
+    parsed_rows = parse_line_texts(text, received_at)
+    parsed = parsed_rows[0]
+    parsed_data = parsed.model_dump(mode="json") if len(parsed_rows) == 1 else {
+        "pattern": "TECHNICIAN_SHORT_LIST",
+        "items": [row.model_dump(mode="json") for row in parsed_rows],
+    }
+    if len(parsed_rows) == 1:
+        errors = parsed.errors
+    else:
+        errors = [
+            f"รายการที่ {index}: {error}"
+            for index, row in enumerate(parsed_rows, 1)
+            for error in row.errors
+        ]
     intake = ScheduleIntake(
         source_type="LINE_TEXT",
         source_event_id=event_id,
         source_checksum=hashlib.sha256(text.encode()).hexdigest(),
         raw_text=text,
-        parsed_data=parsed.model_dump(mode="json"),
-        state=IntakeState.NEEDS_REVIEW if parsed.ambiguous else IntakeState.PARSED,
-        validation_errors=parsed.errors,
+        parsed_data=parsed_data,
+        state=IntakeState.NEEDS_REVIEW if any(row.ambiguous for row in parsed_rows) else IntakeState.PARSED,
+        validation_errors=errors,
     )
     db.add(intake)
     db.flush()

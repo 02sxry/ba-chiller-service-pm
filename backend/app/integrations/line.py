@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 from dataclasses import dataclass
+from datetime import date
 from enum import StrEnum
 from typing import Any, Protocol
 
@@ -82,15 +83,27 @@ def build_line_provider(settings: Settings) -> LineProvider:
 
 
 def build_flex_message(kind: str, payload: dict[str, Any]) -> dict[str, Any]:
-    date_text = payload["scheduled_date"]
+    date_value = date.fromisoformat(payload["scheduled_date"])
+    date_text = f"{date_value.day:02d}/{date_value.month:02d}/{(date_value.year + 543) % 100:02d}"
     action_data = payload.get("actions") or {}
     title = "ข้อเสนอนัดหมาย PM" if kind == "APPOINTMENT_PROPOSAL" else "แจ้งเปลี่ยนวันนัดหมาย"
-    body_contents: list[dict[str, Any]] = [
-        {"type": "text", "text": title, "weight": "bold", "size": "lg", "color": "#0D756D"},
-        {"type": "text", "text": f"วันที่นัด: {date_text}", "margin": "md", "wrap": True},
-        {"type": "text", "text": f"ประเภทบริการ: {payload.get('service_type', 'PM')}", "size": "sm", "color": "#667788"},
-        {"type": "text", "text": f"อ้างอิง: {payload['appointment_id'][:8].upper()}", "size": "xs", "color": "#8899AA", "margin": "md"},
-    ]
+    if kind == "APPOINTMENT_PROPOSAL":
+        service_type = payload.get("service_type", "PM")
+        equipment_name = payload.get("equipment_name") or "Chiller"
+        location = payload.get("room_location") or "สถานที่ติดตั้ง"
+        body_contents: list[dict[str, Any]] = [
+            {"type": "text", "text": f"ขออนุญาตแจ้งวันเข้า {service_type} {equipment_name}", "weight": "bold", "size": "md", "color": "#0D756D", "wrap": True},
+            {"type": "text", "text": f"{location} - {date_text}", "margin": "md", "wrap": True},
+            {"type": "text", "text": "ไม่ทราบว่าสะดวกไหมครับ", "size": "sm", "color": "#667788", "margin": "md", "wrap": True},
+            {"type": "text", "text": f"อ้างอิง: {payload['appointment_id'][:8].upper()}", "size": "xs", "color": "#8899AA", "margin": "md"},
+        ]
+    else:
+        body_contents = [
+            {"type": "text", "text": title, "weight": "bold", "size": "lg", "color": "#0D756D"},
+            {"type": "text", "text": f"วันที่นัด: {date_text}", "margin": "md", "wrap": True},
+            {"type": "text", "text": f"ประเภทบริการ: {payload.get('service_type', 'PM')}", "size": "sm", "color": "#667788"},
+            {"type": "text", "text": f"อ้างอิง: {payload['appointment_id'][:8].upper()}", "size": "xs", "color": "#8899AA", "margin": "md"},
+        ]
     buttons: list[dict[str, Any]] = []
     if kind == "APPOINTMENT_PROPOSAL" and action_data.get("confirm"):
         buttons.append({

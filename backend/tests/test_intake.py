@@ -3,7 +3,7 @@ from io import BytesIO
 
 from openpyxl import Workbook
 
-from app.services.intake import parse_excel, parse_line_text
+from app.services.intake import parse_excel, parse_line_text, parse_line_texts
 
 
 def test_parse_buddhist_era_line_message() -> None:
@@ -32,6 +32,32 @@ def test_relative_date_uses_bangkok_timezone() -> None:
         datetime(2026, 11, 23, 18, 30, tzinfo=UTC),
     )
     assert parsed.proposed_date == date(2026, 11, 25)
+
+
+def test_parse_easy_technician_pattern_without_year() -> None:
+    parsed = parse_line_text(
+        "ขอนแก่น Xstrahl # 26/12",
+        datetime(2026, 11, 27, tzinfo=UTC),
+    )
+    assert parsed.proposed_date == date(2026, 12, 26)
+    assert parsed.hospital_text == "ขอนแก่น"
+    assert parsed.equipment_text == "Xstrahl"
+    assert parsed.ambiguous is False
+
+
+def test_parse_multiple_easy_technician_rows() -> None:
+    parsed = parse_line_texts(
+        "ขอนแก่น Xstrahl # 26/12\nอุบล IX, Hal # 13/12\nรามา Hal > เพิ่งเข้าเดือน 10\nธรรมศาสตร์ Chiller # 5/12",
+        datetime(2026, 11, 27, tzinfo=UTC),
+    )
+    assert [(row.hospital_text, row.equipment_text, row.proposed_date) for row in parsed] == [
+        ("ขอนแก่น", "Xstrahl", date(2026, 12, 26)),
+        ("อุบล", "IX, Hal", date(2026, 12, 13)),
+        ("รามา", "Hal", None),
+        ("ธรรมศาสตร์", "Chiller", date(2026, 12, 5)),
+    ]
+    assert parsed[2].ambiguous is True
+    assert "ไม่สามารถระบุวันนัดได้อย่างชัดเจน" in parsed[2].errors
 
 
 def test_excel_parser_reports_row_errors() -> None:
