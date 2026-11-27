@@ -193,6 +193,7 @@ class AppointmentView(ORMModel):
 class AppointmentSummary(BaseModel):
     id: uuid.UUID
     reference: str
+    pm_slot_id: uuid.UUID
     hospital_id: uuid.UUID
     equipment_id: uuid.UUID
     hospital_name: str

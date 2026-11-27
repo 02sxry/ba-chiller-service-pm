@@ -77,8 +77,8 @@ export default function App() {
         <Route path="/slots" element={<SlotsPage />} />
         <Route path="/users" element={<AdminOnly><UsersPage /></AdminOnly>} />
         <Route path="/drafts" element={<DraftsPage />} />
-        <Route path="/intakes" element={<ApprovalQueuePage />} />
-        <Route path="/approvals" element={<ApprovalQueuePage />} />
+        <Route path="/intakes" element={<AdminOnly><ApprovalQueuePage /></AdminOnly>} />
+        <Route path="/approvals" element={<AdminOnly><ApprovalQueuePage /></AdminOnly>} />
         <Route path="/calendar" element={<AppointmentsPage />} />
         <Route path="/confirmations" element={<AppointmentsPage title="การยืนยันนัด" status="CONFIRMED" />} />
         <Route path="/reschedules" element={<AppointmentsPage title="คำขอเลื่อนนัด" status="RESCHEDULE_REQUESTED" />} />

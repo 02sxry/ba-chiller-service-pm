@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.db import bool_filter, get_db, lock_query
 from app.core.security import AdminUser, CurrentUser, create_access_token, hash_password, verify_password
-from app.domain.enums import AppointmentStatus, NotificationStatus, Role, SyncStatus
+from app.domain.enums import AppointmentStatus, IntakeState, NotificationStatus, Role, SyncStatus
 from app.domain.models import (
     AnnualPlan,
     Appointment,
@@ -748,6 +748,35 @@ def appointment_approve(request: AppointmentApproveRequest, db: Db, admin: Admin
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
+@router.post("/intakes/{intake_id}/items/{item_index}/approve", response_model=AppointmentView, status_code=201, tags=["intake"])
+def approve_intake_item(
+    intake_id: uuid.UUID, item_index: int, request: AppointmentApproveRequest, db: Db, admin: AdminUser,
+) -> Appointment:
+    intake = db.scalar(lock_query(select(ScheduleIntake).where(ScheduleIntake.id == intake_id), ScheduleIntake, db))
+    if not intake:
+        raise HTTPException(status_code=404, detail="ไม่พบตารางจากช่าง")
+    data = intake.parsed_data
+    is_batch = isinstance(data.get("items"), list)
+    items = list(data["items"]) if is_batch else [data]
+    if not 0 <= item_index < len(items):
+        raise HTTPException(status_code=404, detail="ไม่พบรายการในตารางจากช่าง")
+    if items[item_index].get("appointment_id") or intake.state not in {
+        IntakeState.PARSED, IntakeState.NEEDS_REVIEW, IntakeState.READY_FOR_APPROVAL,
+    }:
+        raise HTTPException(status_code=409, detail="รายการนี้ผ่านการดำเนินการแล้ว")
+    try:
+        appointment, _ = approve_appointment(db, request, admin)
+        items[item_index] = {**items[item_index], "appointment_id": str(appointment.id)}
+        intake.parsed_data = {**data, "items": items} if is_batch else items[0]
+        if all(item.get("appointment_id") for item in items):
+            intake.state = IntakeState.CONVERTED_TO_APPOINTMENT
+        db.commit()
+        return appointment
+    except AppointmentError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @router.post("/appointments/confirm", response_model=AppointmentView, tags=["appointments"])
 def appointment_confirm(request: ConfirmRequest, db: Db) -> Appointment:
     try:
@@ -840,6 +869,7 @@ def list_appointments(
         AppointmentSummary(
             id=appointment.id,
             reference=f"BA-{str(appointment.id)[:8].upper()}",
+            pm_slot_id=appointment.pm_slot_id,
             hospital_id=appointment.hospital_id,
             equipment_id=appointment.equipment_id,
             hospital_name=hospital_name,
@@ -991,24 +1021,25 @@ async def line_webhook(
                 except (AppointmentError, ValueError) as exc:
                     action_results.append({"event_id": event_id, "result": f"REJECTED: {exc}"})
         elif event.get("type") == "message" and event.get("message", {}).get("type") == "text":
-            group_id = event.get("source", {}).get("groupId")
+            source = event.get("source", {})
+            group_id = source.get("groupId") if source.get("type") == "group" else None
             mapping = db.scalar(select(LineGroupMapping).where(
                 LineGroupMapping.line_group_id == group_id,
-                LineGroupMapping.group_type == "HOSPITAL",
                 bool_filter(LineGroupMapping.active, True),
             )) if group_id else None
-            intent = parse_line_question(event["message"].get("text", ""))
+            message_text = event["message"].get("text", "")
+            intent = parse_line_question(message_text)
             if not mapping:
                 action_results.append({"event_id": event_id, "result": "UNAUTHORIZED_GROUP"})
             elif mapping.group_type == "TECHNICIAN":
                 intake = create_text_intake(
                     db,
                     event_id,
-                    event["message"].get("text", ""),
-                    datetime.now(UTC),
+                    message_text,
+                    datetime.fromtimestamp(event["timestamp"] / 1000, UTC) if event.get("timestamp") else datetime.now(UTC),
                 )
                 action_results.append({"event_id": event_id, "result": f"TECHNICIAN_INTAKE_{intake.state.value}"})
-            elif not mapping.hospital_id:
+            elif mapping.group_type != "HOSPITAL" or not mapping.hospital_id:
                 action_results.append({"event_id": event_id, "result": "UNAUTHORIZED_GROUP"})
             elif intent == LineQuestionIntent.HELP:
                 db.add(NotificationJob(

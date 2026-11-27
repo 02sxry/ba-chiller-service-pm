@@ -13,7 +13,6 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
-    Text,
     Unicode,
     UnicodeText,
     UniqueConstraint,
@@ -122,14 +121,14 @@ class MasterDataDraft(IdMixin, TimestampMixin, VersionMixin, Base):
     __tablename__ = "master_data_drafts"
     draft_type: Mapped[DraftType] = mapped_column(Enum(DraftType, name="draft_type"))
     status: Mapped[DraftStatus] = mapped_column(Enum(DraftStatus, name="draft_status"), default=DraftStatus.PENDING)
-    original_text: Mapped[str] = mapped_column(Text)
+    original_text: Mapped[str] = mapped_column(UnicodeText)
     proposed_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     suggestions: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
     parent_draft_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("master_data_drafts.id"))
     resolved_record_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True))
     reviewed_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    review_notes: Mapped[str | None] = mapped_column(Text)
+    review_notes: Mapped[str | None] = mapped_column(UnicodeText)
 
 
 class AnnualPlan(IdMixin, TimestampMixin, VersionMixin, Base):
@@ -189,7 +188,7 @@ class ScheduleIntake(IdMixin, TimestampMixin, VersionMixin, Base):
     source_event_id: Mapped[str] = mapped_column(String(255), unique=True)
     source_file_id: Mapped[str | None] = mapped_column(String(255))
     source_checksum: Mapped[str | None] = mapped_column(String(64), index=True)
-    raw_text: Mapped[str | None] = mapped_column(Text)
+    raw_text: Mapped[str | None] = mapped_column(UnicodeText)
     parsed_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     state: Mapped[IntakeState] = mapped_column(Enum(IntakeState, name="intake_state"), default=IntakeState.RECEIVED)
     validation_errors: Mapped[list[str]] = mapped_column(JSON, default=list)
@@ -218,12 +217,12 @@ class AppointmentRevision(IdMixin, TimestampMixin, Base):
     appointment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("appointments.id", ondelete="CASCADE"), index=True)
     revision_number: Mapped[int] = mapped_column(Integer)
     scheduled_date: Mapped[date] = mapped_column(Date, index=True)
-    service_type: Mapped[str] = mapped_column(String(100), default="PM")
-    notes: Mapped[str | None] = mapped_column(Text)
+    service_type: Mapped[str] = mapped_column(Unicode(100), default="PM")
+    notes: Mapped[str | None] = mapped_column(UnicodeText)
     change_source: Mapped[ChangeSource] = mapped_column(Enum(ChangeSource, name="change_source"))
-    requested_by: Mapped[str | None] = mapped_column(String(255))
+    requested_by: Mapped[str | None] = mapped_column(Unicode(255))
     approved_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
-    reason: Mapped[str | None] = mapped_column(Text)
+    reason: Mapped[str | None] = mapped_column(UnicodeText)
     appointment: Mapped[Appointment] = relationship(back_populates="revisions", foreign_keys=[appointment_id])
     __table_args__ = (UniqueConstraint("appointment_id", "revision_number", name="uq_revision_number"),)
 
@@ -233,7 +232,7 @@ class RescheduleRequest(IdMixin, TimestampMixin, Base):
     appointment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("appointments.id"), index=True)
     revision_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("appointment_revisions.id"))
     preferred_date: Mapped[date | None] = mapped_column(Date)
-    message: Mapped[str | None] = mapped_column(Text)
+    message: Mapped[str | None] = mapped_column(UnicodeText)
     source_group_id: Mapped[str] = mapped_column(String(255))
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -266,7 +265,7 @@ class NotificationJob(IdMixin, TimestampMixin, VersionMixin, Base):
     )
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    last_error: Mapped[str | None] = mapped_column(Text)
+    last_error: Mapped[str | None] = mapped_column(UnicodeText)
     provider_message_id: Mapped[str | None] = mapped_column(String(255))
 
 
@@ -280,14 +279,14 @@ class SyncEvent(IdMixin, TimestampMixin, VersionMixin, Base):
     expected_version: Mapped[int | None] = mapped_column(Integer)
     status: Mapped[SyncStatus] = mapped_column(Enum(SyncStatus, name="sync_status"), default=SyncStatus.PENDING)
     attempts: Mapped[int] = mapped_column(Integer, default=0)
-    last_error: Mapped[str | None] = mapped_column(Text)
+    last_error: Mapped[str | None] = mapped_column(UnicodeText)
 
 
 class DriveFile(IdMixin, TimestampMixin, Base):
     __tablename__ = "drive_files"
     drive_file_id: Mapped[str] = mapped_column(String(255), unique=True)
     folder_kind: Mapped[str] = mapped_column(String(80))
-    original_name: Mapped[str] = mapped_column(String(500))
+    original_name: Mapped[str] = mapped_column(Unicode(500))
     mime_type: Mapped[str] = mapped_column(String(255))
     checksum: Mapped[str | None] = mapped_column(String(64), index=True)
     size_bytes: Mapped[int | None] = mapped_column(Integer)
@@ -308,13 +307,13 @@ class AuditLog(IdMixin, Base):
     __tablename__ = "audit_logs"
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
     actor_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
-    actor_label: Mapped[str | None] = mapped_column(String(255))
+    actor_label: Mapped[str | None] = mapped_column(Unicode(255))
     action: Mapped[str] = mapped_column(String(100), index=True)
     entity_type: Mapped[str] = mapped_column(String(100))
     entity_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), index=True)
     old_values: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     new_values: Mapped[dict[str, Any] | None] = mapped_column(JSON)
-    reason: Mapped[str | None] = mapped_column(Text)
+    reason: Mapped[str | None] = mapped_column(UnicodeText)
     source: Mapped[str] = mapped_column(String(50))
     revision_number: Mapped[int | None] = mapped_column(Integer)
 

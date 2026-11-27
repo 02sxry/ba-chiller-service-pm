@@ -78,8 +78,8 @@ def approve_appointment(db: Session, request: AppointmentApproveRequest, admin: 
     if slot.equipment_id != request.equipment_id:
         raise AppointmentError("อุปกรณ์ไม่ตรงกับ PM Slot")
     equipment = db.get(Equipment, request.equipment_id)
-    if not equipment or equipment.hospital_id != request.hospital_id:
-        raise AppointmentError("โรงพยาบาลไม่ตรงกับอุปกรณ์")
+    if not equipment or not equipment.active or equipment.hospital_id != request.hospital_id:
+        raise AppointmentError("โรงพยาบาลไม่ตรงกับอุปกรณ์ หรือปิดใช้งานอุปกรณ์แล้ว")
     existing = db.scalar(select(Appointment).where(Appointment.pm_slot_id == slot.id))
     if existing:
         raise AppointmentError("PM Slot นี้มีนัดอยู่แล้ว ให้ใช้ขั้นตอนแก้ไขนัด")
@@ -146,7 +146,13 @@ def _validate_action_token(
     action_token = db.scalar(
         lock_query(select(ActionToken).where(ActionToken.token_hash == _hash_token(token)), ActionToken, db)
     )
-    if not action_token or action_token.used_at or action_token.expires_at <= datetime.now(UTC):
+    if not action_token or action_token.used_at:
+        raise AppointmentError("ลิงก์ตอบรับไม่ถูกต้อง หมดอายุ หรือถูกใช้แล้ว")
+    expires_at = action_token.expires_at
+    if expires_at.tzinfo is None:
+        # Treat older stored timestamps without an offset as UTC.
+        expires_at = expires_at.replace(tzinfo=UTC)
+    if expires_at <= datetime.now(UTC):
         raise AppointmentError("ลิงก์ตอบรับไม่ถูกต้อง หมดอายุ หรือถูกใช้แล้ว")
     if action_token.action not in allowed_actions:
         raise AppointmentError("ลิงก์นี้ไม่รองรับการดำเนินการดังกล่าว")

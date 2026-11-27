@@ -1,17 +1,17 @@
 import uuid
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import select, true
 
 from app.core.db import get_db
 from app.core.security import create_access_token
 from app.domain.enums import AppointmentStatus, PlanningMode, Role
-from app.domain.models import AnnualPlan, Appointment, Hospital, NextYearPlanDraft, PMSlot, User
+from app.domain.models import AnnualPlan, Appointment, AuditLog, Hospital, NextYearPlanDraft, PMSlot, User
 from app.main import app
 
 
 def make_user(db, email: str, role: Role) -> User:
-    user = User(email=email, password_hash="unused", display_name=email, role=role)
+    user = User(username=email.partition("@")[0], email=email, password_hash="unused", display_name=email, role=role)
     db.add(user)
     db.flush()
     return user
@@ -58,10 +58,14 @@ def test_admin_can_create_hospital(db) -> None:
         response = client.post(
             "/api/v1/hospitals",
             headers=headers,
-            json={"hospital_code": "AUTH-H2", "hospital_name": "โรงพยาบาลมีสิทธิ์"},
+            json={"hospital_code": "", "hospital_name": "โรงพยาบาลมีสิทธิ์"},
         )
         assert response.status_code == 201
-        assert response.json()["hospital_code"] == "AUTH-H2"
+        hospital = response.json()
+        assert hospital["hospital_code"].startswith("HOSP-")
+        assert hospital["hospital_name"] == "โรงพยาบาลมีสิทธิ์"
+        event = db.scalar(select(AuditLog).where(AuditLog.entity_id == uuid.UUID(hospital["id"])))
+        assert event.new_values["hospital_name"] == hospital["hospital_name"]
     finally:
         app.dependency_overrides.clear()
 
@@ -179,7 +183,7 @@ def test_archiving_equipment_closes_linked_pm_data(db) -> None:
         plan = db.get(AnnualPlan, plan_id)
         assert plan is not None and plan.active is False
         assert db.scalars(
-            select(PMSlot).where(PMSlot.equipment_id == equipment_id, PMSlot.active.is_(True))
+            select(PMSlot).where(PMSlot.equipment_id == equipment_id, PMSlot.active == true())
         ).all() == []
         draft = db.scalar(select(NextYearPlanDraft).where(NextYearPlanDraft.equipment_id == equipment_id))
         assert draft is not None and draft.excluded is True

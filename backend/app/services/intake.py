@@ -36,6 +36,11 @@ def normalize_year(year: int) -> int:
     return year
 
 
+def _short_pattern_year(year_text: str) -> int:
+    # In the technician shorthand, two digits denote an abbreviated Buddhist year.
+    return int(year_text) + 1957 if len(year_text) == 2 else normalize_year(int(year_text))
+
+
 def _infer_year(day: int, month: int, received_at: datetime) -> int:
     """Infer the next upcoming year for shorthand dates without a year."""
     bangkok_date = received_at.astimezone(ZoneInfo("Asia/Bangkok")).date()
@@ -47,7 +52,9 @@ def _infer_year(day: int, month: int, received_at: datetime) -> int:
     return year + 1 if candidate < bangkok_date else year
 
 
-def parse_thai_date(text: str, received_at: datetime) -> tuple[date | None, bool]:
+def parse_thai_date(
+    text: str, received_at: datetime, *, technician_shorthand: bool = False,
+) -> tuple[date | None, bool]:
     bangkok = received_at.astimezone(ZoneInfo("Asia/Bangkok"))
     if "พรุ่งนี้" in text:
         return (bangkok + timedelta(days=1)).date(), False
@@ -55,7 +62,10 @@ def parse_thai_date(text: str, received_at: datetime) -> tuple[date | None, bool
     if numeric:
         day_text, month_text, year_text = numeric.groups()
         day, month = int(day_text), int(month_text)
-        year = normalize_year(int(year_text)) if year_text else _infer_year(day, month, received_at)
+        if year_text:
+            year = _short_pattern_year(year_text) if technician_shorthand else normalize_year(int(year_text))
+        else:
+            year = _infer_year(day, month, received_at)
         try:
             return date(year, month, day), False
         except ValueError:
@@ -66,7 +76,10 @@ def parse_thai_date(text: str, received_at: datetime) -> tuple[date | None, bool
         day_text, month_name, year_text = named.groups()
         day = int(day_text)
         month = THAI_MONTH_NAMES[month_name]
-        year = normalize_year(int(year_text)) if year_text else _infer_year(day, month, received_at)
+        if year_text:
+            year = _short_pattern_year(year_text) if technician_shorthand else normalize_year(int(year_text))
+        else:
+            year = _infer_year(day, month, received_at)
         try:
             return date(year, month, day), False
         except ValueError:
@@ -89,7 +102,7 @@ def _parse_technician_short_line(text: str, received_at: datetime) -> ParsedSche
         hospital_text = parts[0] if parts else None
         equipment_text = parts[1].strip() if len(parts) == 2 else None
     hospital_text = re.sub(r"^(?:โรงพยาบาล|รพ\.?)[\s]*", "", hospital_text or "", flags=re.IGNORECASE).strip()
-    proposed_date, ambiguous_date = parse_thai_date(date_text, received_at)
+    proposed_date, ambiguous_date = parse_thai_date(date_text, received_at, technician_shorthand=True)
     errors: list[str] = []
     if not proposed_date:
         errors.append("ไม่สามารถระบุวันนัดได้อย่างชัดเจน")
@@ -148,7 +161,7 @@ def _parse_technician_compact_line(text: str, received_at: datetime) -> ParsedSc
         return None
     hospital_text = re.sub(r"^(?:โรงพยาบาล|รพ\.?)[\s]*", "", match.group("hospital").strip(), flags=re.IGNORECASE).strip()
     equipment_text = match.group("equipment").strip()
-    proposed_date, ambiguous_date = parse_thai_date(date_match.group(1), received_at)
+    proposed_date, ambiguous_date = parse_thai_date(date_match.group(1), received_at, technician_shorthand=True)
     errors: list[str] = []
     if not proposed_date:
         errors.append("ไม่สามารถระบุวันนัดได้อย่างชัดเจน")
@@ -194,10 +207,9 @@ def parse_line_text(text: str, received_at: datetime) -> ParsedSchedule:
 
 def parse_line_texts(text: str, received_at: datetime) -> list[ParsedSchedule]:
     """Parse one or more technician rows while preserving the original text."""
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    technician_lines = [line for line in lines if "#" in line or ">" in line]
-    if technician_lines:
-        return [parse_line_text(line, received_at) for line in technician_lines]
+    lines = [re.sub(r"^[-•]\s+", "", line.strip()) for line in text.splitlines() if line.strip()]
+    if any("#" in line or ">" in line or _parse_technician_compact_line(line, received_at) for line in lines):
+        return [parse_line_text(line, received_at) for line in lines]
     return [parse_line_text(text, received_at)]
 
 

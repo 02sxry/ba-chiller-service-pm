@@ -68,8 +68,13 @@ DATABASE_URL=mssql+pyodbc://@SQLSERVER_HOST/BA_PMnotification?driver=ODBC+Driver
 รันจากโฟลเดอร์ `backend` โดยใช้ environment เดียวกับที่ติดตั้ง package:
 
 ```bash
-alembic upgrade head
+python -m alembic upgrade head
+python -m alembic current
 ```
+
+ถ้าเคยอัปเกรดแล้วเจอ error 5074/4922 ที่ `hospital_code` ให้ดึงโค้ดล่าสุดแล้วรัน `upgrade head` ซ้ำกับฐานเดิม รุ่นที่แก้แล้วสร้างดัชนีและข้อกำหนดค่าซ้ำกลับหลังเปลี่ยนชนิดคอลัมน์ ผลจาก `current` ควรมี `(head)`
+
+หากชื่อที่บันทึกก่อนแก้เป็น `????` ให้แก้รายการเดิมในเมนู “กรอกข้อมูลฐานข้อมูล” ด้วยชื่อจากต้นทาง เพื่อรักษาความเชื่อมโยงกับอุปกรณ์และแผน PM
 
 จากนั้นสร้างบัญชีผู้ดูแล:
 

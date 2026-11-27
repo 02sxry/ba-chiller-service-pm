@@ -56,6 +56,18 @@ def test_parse_compact_technician_pattern_without_hash_or_space() -> None:
     assert parsed.ambiguous is False
 
 
+def test_mixed_intake_preserves_compact_rows_and_buddhist_year() -> None:
+    parsed = parse_line_texts(
+        "- ขอนแก่นXstrahl 26/12\n- อุบล Hal # 19/12/69\nรามา Hal > เพิ่งเข้าเดือน 10",
+        datetime(2026, 11, 27, tzinfo=UTC),
+    )
+    assert [(row.hospital_text, row.proposed_date) for row in parsed] == [
+        ("ขอนแก่น", date(2026, 12, 26)),
+        ("อุบล", date(2026, 12, 19)),
+        ("รามา", None),
+    ]
+
+
 def test_parse_multiple_easy_technician_rows() -> None:
     parsed = parse_line_texts(
         "ขอนแก่น Xstrahl # 26/12\nอุบล IX, Hal # 13/12\nรามา Hal > เพิ่งเข้าเดือน 10\nธรรมศาสตร์ Chiller # 5/12",
