@@ -45,6 +45,17 @@ def test_parse_easy_technician_pattern_without_year() -> None:
     assert parsed.ambiguous is False
 
 
+def test_parse_compact_technician_pattern_without_hash_or_space() -> None:
+    parsed = parse_line_text(
+        "ขอนแก่นXstrahl 26/12",
+        datetime(2026, 11, 27, tzinfo=UTC),
+    )
+    assert parsed.proposed_date == date(2026, 12, 26)
+    assert parsed.hospital_text == "ขอนแก่น"
+    assert parsed.equipment_text == "Xstrahl"
+    assert parsed.ambiguous is False
+
+
 def test_parse_multiple_easy_technician_rows() -> None:
     parsed = parse_line_texts(
         "ขอนแก่น Xstrahl # 26/12\nอุบล IX, Hal # 13/12\nรามา Hal > เพิ่งเข้าเดือน 10\nธรรมศาสตร์ Chiller # 5/12",

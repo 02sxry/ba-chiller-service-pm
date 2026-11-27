@@ -134,6 +134,34 @@ def _parse_technician_note_line(text: str) -> ParsedSchedule | None:
     )
 
 
+def _parse_technician_compact_line(text: str, received_at: datetime) -> ParsedSchedule | None:
+    """Parse ``ขอนแก่นXstrahl 26/12`` without a hash or separating space."""
+    date_match = re.search(r"(?<!\d)(\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?)\s*$", text)
+    if not date_match:
+        return None
+    details = text[:date_match.start()].strip()
+    match = re.match(
+        r"^(?P<hospital>[ก-๙][ก-๙\s.]*?)(?P<equipment>[A-Za-z][A-Za-z0-9,._/\- ]*)$",
+        details,
+    )
+    if not match:
+        return None
+    hospital_text = re.sub(r"^(?:โรงพยาบาล|รพ\.?)[\s]*", "", match.group("hospital").strip(), flags=re.IGNORECASE).strip()
+    equipment_text = match.group("equipment").strip()
+    proposed_date, ambiguous_date = parse_thai_date(date_match.group(1), received_at)
+    errors: list[str] = []
+    if not proposed_date:
+        errors.append("ไม่สามารถระบุวันนัดได้อย่างชัดเจน")
+    return ParsedSchedule(
+        proposed_date=proposed_date,
+        hospital_text=hospital_text or None,
+        equipment_text=equipment_text or None,
+        notes=text.strip(),
+        ambiguous=ambiguous_date or not hospital_text or not equipment_text,
+        errors=errors,
+    )
+
+
 def parse_line_text(text: str, received_at: datetime) -> ParsedSchedule:
     short_line = _parse_technician_short_line(text, received_at)
     if short_line:
@@ -141,6 +169,9 @@ def parse_line_text(text: str, received_at: datetime) -> ParsedSchedule:
     note_line = _parse_technician_note_line(text)
     if note_line:
         return note_line
+    compact_line = _parse_technician_compact_line(text, received_at)
+    if compact_line:
+        return compact_line
     proposed_date, ambiguous = parse_thai_date(text, received_at)
     hospital_match = re.search(r"(?:โรงพยาบาล|รพ\.?)[\s]*([^,\n]+?)(?=\s+(?:เครื่อง|Chiller|ชิลเลอร์|ตรวจ|เข้า)|$)", text, re.I)
     equipment_match = re.search(r"(?:เครื่อง\s*)?((?:Chiller|ชิลเลอร์)[\s\wก-๙.-]*)", text, re.I)
