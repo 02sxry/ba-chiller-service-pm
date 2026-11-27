@@ -14,6 +14,8 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    Unicode,
+    UnicodeText,
     UniqueConstraint,
     Uuid,
     func,
@@ -55,17 +57,17 @@ class User(IdMixin, TimestampMixin, Base):
     username: Mapped[str | None] = mapped_column(String(100), unique=True, index=True)
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
-    display_name: Mapped[str] = mapped_column(String(255))
+    display_name: Mapped[str] = mapped_column(Unicode(255))
     role: Mapped[Role] = mapped_column(Enum(Role, name="user_role"), default=Role.VIEWER)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class Hospital(IdMixin, TimestampMixin, VersionMixin, Base):
     __tablename__ = "hospitals"
-    hospital_code: Mapped[str] = mapped_column(String(50), unique=True, index=True)
-    hospital_name: Mapped[str] = mapped_column(String(255), index=True)
+    hospital_code: Mapped[str] = mapped_column(Unicode(50), unique=True, index=True)
+    hospital_name: Mapped[str] = mapped_column(Unicode(255), index=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
-    notes: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(UnicodeText)
     aliases: Mapped[list["HospitalAlias"]] = relationship(back_populates="hospital", cascade="all, delete-orphan")
     equipment: Mapped[list["Equipment"]] = relationship(back_populates="hospital")
 
@@ -73,35 +75,35 @@ class Hospital(IdMixin, TimestampMixin, VersionMixin, Base):
 class HospitalAlias(IdMixin, TimestampMixin, Base):
     __tablename__ = "hospital_aliases"
     hospital_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("hospitals.id", ondelete="CASCADE"), index=True)
-    alias: Mapped[str] = mapped_column(String(255))
-    normalized_alias: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    alias: Mapped[str] = mapped_column(Unicode(255))
+    normalized_alias: Mapped[str] = mapped_column(Unicode(255), unique=True, index=True)
     hospital: Mapped[Hospital] = relationship(back_populates="aliases")
 
 
 class Manufacturer(IdMixin, TimestampMixin, VersionMixin, Base):
     __tablename__ = "manufacturers"
-    name: Mapped[str] = mapped_column(String(255), unique=True)
+    name: Mapped[str] = mapped_column(Unicode(255), unique=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class EquipmentType(IdMixin, TimestampMixin, VersionMixin, Base):
     __tablename__ = "equipment_types"
-    name: Mapped[str] = mapped_column(String(255), unique=True)
+    name: Mapped[str] = mapped_column(Unicode(255), unique=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class Equipment(IdMixin, TimestampMixin, VersionMixin, Base):
     __tablename__ = "equipment"
-    equipment_code: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    equipment_code: Mapped[str] = mapped_column(Unicode(50), unique=True, index=True)
     hospital_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("hospitals.id"), index=True)
     manufacturer_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("manufacturers.id"))
     equipment_type_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("equipment_types.id"))
-    equipment_name: Mapped[str] = mapped_column(String(255))
-    model: Mapped[str | None] = mapped_column(String(255))
-    serial_number: Mapped[str | None] = mapped_column(String(255))
-    room_location: Mapped[str | None] = mapped_column(String(255))
+    equipment_name: Mapped[str] = mapped_column(Unicode(255))
+    model: Mapped[str | None] = mapped_column(Unicode(255))
+    serial_number: Mapped[str | None] = mapped_column(Unicode(255))
+    room_location: Mapped[str | None] = mapped_column(Unicode(255))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
-    notes: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(UnicodeText)
     hospital: Mapped[Hospital] = relationship(back_populates="equipment")
     __table_args__ = (
         UniqueConstraint("hospital_id", "serial_number", name="uq_equipment_hospital_serial"),
@@ -111,8 +113,8 @@ class Equipment(IdMixin, TimestampMixin, VersionMixin, Base):
 
 class Technician(IdMixin, TimestampMixin, VersionMixin, Base):
     __tablename__ = "technicians"
-    technician_code: Mapped[str] = mapped_column(String(50), unique=True)
-    display_name: Mapped[str] = mapped_column(String(255))
+    technician_code: Mapped[str] = mapped_column(Unicode(50), unique=True)
+    display_name: Mapped[str] = mapped_column(Unicode(255))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
