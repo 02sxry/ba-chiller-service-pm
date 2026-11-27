@@ -24,7 +24,13 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers })
   if (!response.ok) {
     const body = await response.json().catch(() => ({ detail: 'ไม่สามารถเชื่อมต่อระบบได้' }))
-    throw new Error(body.detail ?? 'เกิดข้อผิดพลาด')
+    const detail = body.detail
+    const message = Array.isArray(detail)
+      ? detail.map((item) => typeof item === 'string' ? item : item?.msg ?? JSON.stringify(item)).join(' · ')
+      : typeof detail === 'object' && detail !== null
+        ? JSON.stringify(detail)
+        : detail ?? 'เกิดข้อผิดพลาด'
+    throw new Error(message)
   }
   return response.json() as Promise<T>
 }

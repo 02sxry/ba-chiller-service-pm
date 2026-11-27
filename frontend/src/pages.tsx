@@ -82,7 +82,7 @@ export function HospitalsPage() {
   const query = useQuery({ queryKey: ['hospitals'], queryFn: () => api<Hospital[]>('/hospitals') })
   const [form, setForm] = useState({ hospital_code: '', hospital_name: '' })
   const create = useMutation({
-    mutationFn: () => api<Hospital>('/hospitals', { method: 'POST', body: JSON.stringify(form) }),
+    mutationFn: () => api<Hospital>('/hospitals', { method: 'POST', body: JSON.stringify({ ...form, hospital_code: form.hospital_code.trim() || null }) }),
     onSuccess: () => { setForm({ hospital_code: '', hospital_name: '' }); client.invalidateQueries({ queryKey: ['hospitals'] }) },
   })
   return <>

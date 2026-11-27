@@ -51,6 +51,11 @@ class HospitalCreate(BaseModel):
     hospital_name: str = Field(min_length=1, max_length=255)
     notes: str | None = None
 
+    @field_validator("hospital_code", mode="before")
+    @classmethod
+    def empty_hospital_code_is_none(cls, value: object) -> object:
+        return None if isinstance(value, str) and not value.strip() else value
+
 
 class HospitalUpdate(BaseModel):
     hospital_name: str | None = Field(default=None, min_length=1, max_length=255)
