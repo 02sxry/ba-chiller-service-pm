@@ -2,9 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowUpRight, CalendarCheck2, CircleCheckBig, Clock3, Layers3, RefreshCcw, Wrench } from 'lucide-react'
 import { useState } from 'react'
 import { api, type Metrics } from './lib/api'
-
-const currentYear = new Date().getFullYear()
-const buddhistYear = currentYear + 543
+import { getBangkokDate } from './lib/date'
 
 function MetricCard({ title, value, note, tone, icon: Icon }: { title: string; value: number; note: string; tone: string; icon: typeof Layers3 }) {
   return (
@@ -17,7 +15,9 @@ function MetricCard({ title, value, note, tone, icon: Icon }: { title: string; v
 }
 
 export function Dashboard() {
-  const [year, setYear] = useState(currentYear)
+  const currentYear = getBangkokDate().year
+  const buddhistYear = currentYear + 543
+  const [year, setYear] = useState(() => getBangkokDate().year)
   const query = useQuery({
     queryKey: ['dashboard', year],
     queryFn: () => api<Metrics>(`/dashboard?year=${year}`),
@@ -127,8 +127,8 @@ export function PlannerPage() {
   const [hospitalId, setHospitalId] = useState('')
   const [equipmentId, setEquipmentId] = useState('')
   const [frequency, setFrequency] = useState(4)
-  const [startMonth, setStartMonth] = useState(1)
-  const [year, setYear] = useState(currentYear + 1)
+  const [startMonth, setStartMonth] = useState(() => getBangkokDate().month)
+  const [year, setYear] = useState(() => getBangkokDate().year)
   const activeHospitalIds = new Set(hospitals.data?.map((hospital) => hospital.id))
   const preview = useQuery({
     queryKey: ['plan-preview', year, frequency, startMonth],
@@ -266,11 +266,14 @@ export function DatabaseEntryPage() {
     serial_number: "",
     room_location: "",
   });
-  const [planForm, setPlanForm] = useState({
-    equipment_id: "",
-    year: currentYear + 1,
-    frequency: 4,
-    start_month: 1,
+  const [planForm, setPlanForm] = useState(() => {
+    const today = getBangkokDate();
+    return {
+      equipment_id: "",
+      year: today.year,
+      frequency: 4,
+      start_month: today.month,
+    };
   });
   const [planPreview, setPlanPreview] = useState<string[]>([]);
   const [editingHospital, setEditingHospital] = useState<Hospital | null>(null);
@@ -1223,7 +1226,7 @@ function IntakeApprovalForm({ selection, onSuccess }: { selection: IntakeSelecti
   const [hospitalId, setHospitalId] = useState('')
   const [equipmentId, setEquipmentId] = useState('')
   const [slotId, setSlotId] = useState('')
-  const [date, setDate] = useState(selection.item.proposed_date ?? '')
+  const [date, setDate] = useState(() => selection.item.proposed_date || getBangkokDate().isoDate)
   const hospitals = useQuery({ queryKey: ['hospitals', 'active'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
   const equipment = useQuery({ queryKey: ['equipment'], queryFn: () => api<Equipment[]>('/equipment') })
   const slots = useQuery({ queryKey: ['slots'], queryFn: () => api<Slot[]>('/slots') })
@@ -1358,7 +1361,8 @@ export function LineGroupsPage() {
 }
 
 export function ReportsPage() {
-  const [year, setYear] = useState(currentYear)
+  const currentYear = getBangkokDate().year
+  const [year, setYear] = useState(() => getBangkokDate().year)
   const query = useQuery({ queryKey: ['dashboard', year], queryFn: () => api<Metrics>(`/dashboard?year=${year}`) })
   const rows = [
     ['รอบ PM ตามแผน', query.data?.total_pm_slots ?? 0], ['นัดที่มี confirmation', query.data?.confirmed_appointments ?? 0],
