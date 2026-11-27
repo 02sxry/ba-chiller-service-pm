@@ -5,7 +5,13 @@ import pytest
 from app.domain.enums import PlanningMode, Role
 from app.domain.models import Equipment, Hospital, User
 from app.domain.schemas import PlanApproveRequest, PlanPreviewRequest
-from app.services.planning import PlanningError, approve_plan, calculate_months, calculate_periods
+from app.services.planning import (
+    PlanningError,
+    approve_plan,
+    calculate_months,
+    calculate_periods,
+    recalculate_plan,
+)
 
 
 @pytest.mark.parametrize(
@@ -139,4 +145,43 @@ def test_database_rejects_duplicate_yearly_plan(db) -> None:
     db.flush()
     with pytest.raises(PlanningError, match="มีแผนรายปี"):
         approve_plan(db, request, admin)
+
+
+def test_recalculate_plan_replaces_unbooked_slots(db) -> None:
+    admin = User(
+        email="admin-recalculate@example.com",
+        password_hash="x",
+        display_name="Admin",
+        role=Role.ADMIN,
+    )
+    hospital = Hospital(hospital_code="H-RECALC", hospital_name="โรงพยาบาลคำนวณใหม่")
+    equipment = Equipment(
+        equipment_code="E-RECALC",
+        hospital=hospital,
+        equipment_name="Chiller",
+    )
+    db.add_all([admin, hospital, equipment])
+    db.flush()
+    original = PlanApproveRequest(
+        equipment_id=equipment.id,
+        plan_year=2027,
+        annual_frequency=4,
+        planning_mode=PlanningMode.AUTOMATIC,
+        start_month=1,
+    )
+    plan = approve_plan(db, original, admin)
+    db.flush()
+
+    replacement = original.model_copy(update={"start_month": 10})
+    updated = recalculate_plan(db, replacement, admin)
+    db.flush()
+
+    assert updated.id == plan.id
+    assert updated.planned_months == [10, 1, 4, 7]
+    assert [(slot.plan_year, slot.planned_month) for slot in updated.slots] == [
+        (2027, 10),
+        (2028, 1),
+        (2028, 4),
+        (2028, 7),
+    ]
 

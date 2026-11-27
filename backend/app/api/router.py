@@ -100,6 +100,7 @@ from app.services.planning import (
     bulk_approve_drafts,
     calculate_periods,
     generate_next_year_drafts,
+    recalculate_plan,
 )
 
 router = APIRouter()
@@ -652,6 +653,18 @@ def preview_plan(request: PlanPreviewRequest, _: CurrentUser) -> PlanPreviewResp
 def approve_plan_endpoint(request: PlanApproveRequest, db: Db, admin: AdminUser) -> AnnualPlan:
     try:
         plan = approve_plan(db, request, admin)
+        db.commit()
+        db.refresh(plan)
+        return plan
+    except PlanningError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.put("/plans/recalculate", response_model=PlanView, tags=["planning"])
+def recalculate_plan_endpoint(request: PlanApproveRequest, db: Db, admin: AdminUser) -> AnnualPlan:
+    try:
+        plan = recalculate_plan(db, request, admin)
         db.commit()
         db.refresh(plan)
         return plan

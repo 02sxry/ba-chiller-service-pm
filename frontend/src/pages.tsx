@@ -139,6 +139,19 @@ export function PlannerPage() {
     }),
     onSuccess: () => client.invalidateQueries({ queryKey: ['slots'] }),
   })
+  const recalculate = useMutation({
+    mutationFn: () => api('/plans/recalculate', {
+      method: 'PUT',
+      body: JSON.stringify({
+        equipment_id: equipmentId,
+        plan_year: year,
+        annual_frequency: frequency,
+        planning_mode: 'AUTOMATIC',
+        start_month: startMonth,
+      }),
+    }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['slots'] }),
+  })
   return <>
     <section className="page-heading"><div><p className="eyebrow">ANNUAL PLANNING</p><h1>วางแผน PM รายปี</h1><p>Preview ไม่เขียนข้อมูลจริงจนกว่า Admin จะเลือกอุปกรณ์และอนุมัติ</p></div></section>
     <section className="planner-layout">
@@ -149,8 +162,10 @@ export function PlannerPage() {
         <label>เดือนเริ่มกระจาย<select value={startMonth} onChange={(event) => setStartMonth(Number(event.target.value))}>{['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'].map((month, index) => <option value={index + 1} key={month}>{month}</option>)}</select></label>
         <button className="secondary" type="submit">คำนวณเดือนตามแผน</button>
         <button className="primary" type="button" disabled={!preview.data || !equipmentId || approve.isPending} onClick={() => approve.mutate()}>อนุมัติและสร้าง PM Slots</button>
+        <button className="secondary" type="button" disabled={!preview.data || !equipmentId || recalculate.isPending} onClick={() => window.confirm('คำนวณรอบของแผนเดิมใหม่ใช่หรือไม่ ระบบจะทำได้เฉพาะแผนที่ยังไม่มีนัดหมาย') && recalculate.mutate()}>คำนวณแผนเดิมใหม่</button>
         {approve.isSuccess && <div className="success-note">อนุมัติแผนและสร้าง Slots สำเร็จ</div>}
-        {approve.error && <div className="login-error">{approve.error.message}</div>}
+        {recalculate.isSuccess && <div className="success-note">คำนวณรอบของแผนเดิมใหม่แล้ว</div>}
+        {(approve.error || recalculate.error) && <div className="login-error">{(approve.error || recalculate.error)?.message}</div>}
       </form>
       <article className="panel preview-panel"><span className="panel-kicker">PLAN PREVIEW</span><h2>รอบที่เสนอ</h2>{preview.data ? <div className="month-grid">{preview.data.display_periods_th.map((period) => <span key={period}>{period}</span>)}</div> : <p>กรอกข้อมูลแล้วกดคำนวณเพื่อดูตัวอย่าง</p>}<div className="scope-note">ระบบนับต่อเนื่องจากเดือนเริ่มต้นเป็นเวลา 12 เดือน และแสดงปีให้ชัดเจนเมื่อรอบข้ามปี</div></article>
     </section>
@@ -362,6 +377,23 @@ export function DatabaseEntryPage() {
       }),
     onSuccess: () => {
       setPlanPreview([]);
+      client.invalidateQueries({ queryKey: ["slots"] });
+      client.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+  const recalculatePlan = useMutation({
+    mutationFn: () =>
+      api("/plans/recalculate", {
+        method: "PUT",
+        body: JSON.stringify({
+          equipment_id: planForm.equipment_id,
+          plan_year: planForm.year,
+          annual_frequency: planForm.frequency,
+          planning_mode: "AUTOMATIC",
+          start_month: planForm.start_month,
+        }),
+      }),
+    onSuccess: () => {
       client.invalidateQueries({ queryKey: ["slots"] });
       client.invalidateQueries({ queryKey: ["dashboard"] });
     },
@@ -682,13 +714,30 @@ export function DatabaseEntryPage() {
               >
                 ยืนยันและสร้างรอบ PM
               </button>
+              <button
+                className="secondary"
+                type="button"
+                disabled={recalculatePlan.isPending}
+                onClick={() =>
+                  window.confirm(
+                    "คำนวณรอบของแผนเดิมใหม่ใช่หรือไม่ ระบบจะทำได้เฉพาะแผนที่ยังไม่มีนัดหมาย",
+                  ) && recalculatePlan.mutate()
+                }
+              >
+                คำนวณแผนเดิมใหม่
+              </button>
             </>
           )}
-          {createPlan.error && (
-            <div className="login-error">{createPlan.error.message}</div>
+          {(createPlan.error || recalculatePlan.error) && (
+            <div className="login-error">
+              {(createPlan.error || recalculatePlan.error)?.message}
+            </div>
           )}
           {createPlan.isSuccess && (
             <div className="success-note">สร้างแผน PM และรอบ PM แล้ว</div>
+          )}
+          {recalculatePlan.isSuccess && (
+            <div className="success-note">คำนวณรอบของแผนเดิมใหม่แล้ว</div>
           )}
         </form>
       </section>

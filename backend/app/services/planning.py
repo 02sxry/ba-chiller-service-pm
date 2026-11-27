@@ -1,13 +1,13 @@
 import uuid
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.db import bool_filter
 from app.domain.enums import PlanningMode
-from app.domain.models import AnnualPlan, Equipment, Hospital, NextYearPlanDraft, PMSlot, User
+from app.domain.models import AnnualPlan, Appointment, Equipment, Hospital, NextYearPlanDraft, PMSlot, User
 from app.domain.schemas import PlanApproveRequest, PlanPreviewRequest
 from app.services.audit import record_audit
 
@@ -88,6 +88,72 @@ def approve_plan(db: Session, request: PlanApproveRequest, admin: User) -> Annua
         new_values={
             "year": plan.plan_year,
             "months": months,
+            "periods": [{"year": year, "month": month} for year, month in periods],
+        },
+    )
+    return plan
+
+
+def recalculate_plan(db: Session, request: PlanApproveRequest, admin: User) -> AnnualPlan:
+    equipment = db.get(Equipment, request.equipment_id)
+    if not equipment or not equipment.active:
+        raise PlanningError("ไม่พบอุปกรณ์ที่ใช้งานอยู่")
+    hospital = db.get(Hospital, equipment.hospital_id)
+    if not hospital or not hospital.active:
+        raise PlanningError("โรงพยาบาลของอุปกรณ์นี้ปิดใช้งานแล้ว")
+
+    plan = db.scalar(
+        select(AnnualPlan).where(
+            AnnualPlan.equipment_id == request.equipment_id,
+            AnnualPlan.plan_year == request.plan_year,
+        )
+    )
+    if not plan:
+        raise PlanningError("ไม่พบแผนเดิมของอุปกรณ์และปีที่เลือก")
+
+    appointment_count = db.scalar(
+        select(func.count())
+        .select_from(Appointment)
+        .join(PMSlot, PMSlot.id == Appointment.pm_slot_id)
+        .where(PMSlot.yearly_plan_id == plan.id)
+    ) or 0
+    if appointment_count:
+        raise PlanningError(
+            f"คำนวณแผนใหม่ไม่ได้ เพราะมีนัดหมาย {appointment_count} รายการผูกกับรอบเดิม"
+        )
+
+    periods = calculate_periods(request)
+    old_slots = list(db.scalars(select(PMSlot).where(PMSlot.yearly_plan_id == plan.id)).all())
+    old_values = {
+        "annual_frequency": plan.annual_frequency,
+        "start_month": plan.start_month,
+        "planned_months": list(plan.planned_months),
+        "periods": [{"year": slot.plan_year, "month": slot.planned_month} for slot in old_slots],
+    }
+    for slot in old_slots:
+        db.delete(slot)
+    db.flush()
+
+    plan.annual_frequency = request.annual_frequency
+    plan.planning_mode = request.planning_mode
+    plan.start_month = request.start_month
+    plan.planned_months = [month for _, month in periods]
+    plan.slots = [
+        PMSlot(equipment_id=request.equipment_id, plan_year=year, planned_month=month)
+        for year, month in periods
+    ]
+    db.flush()
+    record_audit(
+        db,
+        actor=admin,
+        action="ANNUAL_PLAN_RECALCULATED",
+        entity_type="annual_plan",
+        entity_id=plan.id,
+        old_values=old_values,
+        new_values={
+            "annual_frequency": plan.annual_frequency,
+            "start_month": plan.start_month,
+            "planned_months": list(plan.planned_months),
             "periods": [{"year": year, "month": month} for year, month in periods],
         },
     )
