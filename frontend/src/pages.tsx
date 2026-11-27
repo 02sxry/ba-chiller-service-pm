@@ -1226,7 +1226,7 @@ function IntakeApprovalForm({ selection, onSuccess }: { selection: IntakeSelecti
   const [hospitalId, setHospitalId] = useState('')
   const [equipmentId, setEquipmentId] = useState('')
   const [slotId, setSlotId] = useState('')
-  const [date, setDate] = useState(() => selection.item.proposed_date || getBangkokDate().isoDate)
+  const [date, setDate] = useState(selection.item.proposed_date ?? '')
   const hospitals = useQuery({ queryKey: ['hospitals', 'active'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
   const equipment = useQuery({ queryKey: ['equipment'], queryFn: () => api<Equipment[]>('/equipment') })
   const slots = useQuery({ queryKey: ['slots'], queryFn: () => api<Slot[]>('/slots') })
