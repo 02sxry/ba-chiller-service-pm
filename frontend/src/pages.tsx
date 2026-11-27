@@ -87,6 +87,15 @@ function equipmentPlanLabel(item: Equipment, hospitalName?: string) {
   ].filter(Boolean).join(' · ')
 }
 
+function equipmentDetailLabel(item: Equipment) {
+  return [
+    item.equipment_name,
+    item.model ? `รุ่น ${item.model}` : null,
+    item.serial_number ? `เลขเครื่อง ${item.serial_number}` : null,
+    item.room_location ? `สถานที่ ${item.room_location}` : null,
+  ].filter(Boolean).join(' · ')
+}
+
 export function HospitalsPage() {
   const client = useQueryClient()
   const query = useQuery({ queryKey: ['hospitals', 'active'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
@@ -115,14 +124,15 @@ export function PlannerPage() {
   const equipment = useQuery({ queryKey: ['equipment'], queryFn: () => api<Equipment[]>('/equipment') })
   const hospitals = useQuery({ queryKey: ['hospitals', 'active'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
   const client = useQueryClient()
+  const [hospitalId, setHospitalId] = useState('')
   const [equipmentId, setEquipmentId] = useState('')
   const [frequency, setFrequency] = useState(4)
   const [startMonth, setStartMonth] = useState(1)
   const [year, setYear] = useState(currentYear + 1)
-  const hospitalNames = new Map(hospitals.data?.map((hospital) => [hospital.id, hospital.hospital_name]))
   const activeHospitalIds = new Set(hospitals.data?.map((hospital) => hospital.id))
-  const preview = useMutation({
-    mutationFn: () => api<{ display_periods_th: string[] }>('/plans/preview', {
+  const preview = useQuery({
+    queryKey: ['plan-preview', year, frequency, startMonth],
+    queryFn: () => api<{ display_periods_th: string[] }>('/plans/preview', {
       method: 'POST', body: JSON.stringify({ plan_year: year, annual_frequency: frequency, planning_mode: 'AUTOMATIC', start_month: startMonth }),
     }),
   })
@@ -155,19 +165,20 @@ export function PlannerPage() {
   return <>
     <section className="page-heading"><div><p className="eyebrow">ANNUAL PLANNING</p><h1>วางแผน PM รายปี</h1><p>Preview ไม่เขียนข้อมูลจริงจนกว่า Admin จะเลือกอุปกรณ์และอนุมัติ</p></div></section>
     <section className="planner-layout">
-      <form className="panel form-panel" onSubmit={(event) => { event.preventDefault(); preview.mutate() }}>
-        <label>โรงพยาบาลและอุปกรณ์<select value={equipmentId} onChange={(event) => setEquipmentId(event.target.value)} required><option value="">เลือกโรงพยาบาลและอุปกรณ์</option>{equipment.data?.filter((item) => item.active && activeHospitalIds.has(item.hospital_id)).map((item) => <option value={item.id} key={item.id}>{equipmentPlanLabel(item, hospitalNames.get(item.hospital_id))}</option>)}</select></label>
-        <label>ปีแผน (พ.ศ.)<input type="number" value={year + 543} onChange={(event) => setYear(Number(event.target.value) - 543)} /></label>
-        <label>จำนวนครั้งต่อปี<select value={frequency} onChange={(event) => setFrequency(Number(event.target.value))}>{[1,2,3,4,6,12].map((value) => <option key={value}>{value}</option>)}</select></label>
-        <label>เดือนเริ่มกระจาย<select value={startMonth} onChange={(event) => setStartMonth(Number(event.target.value))}>{['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'].map((month, index) => <option value={index + 1} key={month}>{month}</option>)}</select></label>
-        <button className="secondary" type="submit">คำนวณเดือนตามแผน</button>
+      <form className="panel form-panel" onSubmit={(event) => event.preventDefault()}>
+        <label>โรงพยาบาล<select value={hospitalId} onChange={(event) => { setHospitalId(event.target.value); setEquipmentId(''); approve.reset(); recalculate.reset() }} required><option value="">เลือกโรงพยาบาล</option>{hospitals.data?.map((hospital) => <option value={hospital.id} key={hospital.id}>{hospital.hospital_name}</option>)}</select></label>
+        <label>อุปกรณ์<select value={equipmentId} disabled={!hospitalId} onChange={(event) => { setEquipmentId(event.target.value); approve.reset(); recalculate.reset() }} required><option value="">{hospitalId ? 'เลือกอุปกรณ์' : 'เลือกโรงพยาบาลก่อน'}</option>{equipment.data?.filter((item) => item.active && activeHospitalIds.has(item.hospital_id) && item.hospital_id === hospitalId).map((item) => <option value={item.id} key={item.id}>{equipmentDetailLabel(item)}</option>)}</select></label>
+        <label>ปีแผน (พ.ศ.)<input type="number" value={year + 543} onChange={(event) => { setYear(Number(event.target.value) - 543); approve.reset(); recalculate.reset() }} /></label>
+        <label>จำนวนครั้งต่อปี<select value={frequency} onChange={(event) => { setFrequency(Number(event.target.value)); approve.reset(); recalculate.reset() }}>{[1,2,3,4,6,12].map((value) => <option key={value}>{value}</option>)}</select></label>
+        <label>เดือนเริ่มกระจาย<select value={startMonth} onChange={(event) => { setStartMonth(Number(event.target.value)); approve.reset(); recalculate.reset() }}>{['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'].map((month, index) => <option value={index + 1} key={month}>{month}</option>)}</select></label>
+        <button className="secondary" type="button" disabled={preview.isFetching} onClick={() => preview.refetch()}>{preview.isFetching ? 'กำลังคำนวณ…' : 'คำนวณรอบใหม่'}</button>
         <button className="primary" type="button" disabled={!preview.data || !equipmentId || approve.isPending} onClick={() => approve.mutate()}>อนุมัติและสร้าง PM Slots</button>
         <button className="secondary" type="button" disabled={!preview.data || !equipmentId || recalculate.isPending} onClick={() => window.confirm('คำนวณรอบของแผนเดิมใหม่ใช่หรือไม่ ระบบจะทำได้เฉพาะแผนที่ยังไม่มีนัดหมาย') && recalculate.mutate()}>คำนวณแผนเดิมใหม่</button>
         {approve.isSuccess && <div className="success-note">อนุมัติแผนและสร้าง Slots สำเร็จ</div>}
         {recalculate.isSuccess && <div className="success-note">คำนวณรอบของแผนเดิมใหม่แล้ว</div>}
         {(approve.error || recalculate.error) && <div className="login-error">{(approve.error || recalculate.error)?.message}</div>}
       </form>
-      <article className="panel preview-panel"><span className="panel-kicker">PLAN PREVIEW</span><h2>รอบที่เสนอ</h2>{preview.data ? <div className="month-grid">{preview.data.display_periods_th.map((period) => <span key={period}>{period}</span>)}</div> : <p>กรอกข้อมูลแล้วกดคำนวณเพื่อดูตัวอย่าง</p>}<div className="scope-note">ระบบนับต่อเนื่องจากเดือนเริ่มต้นเป็นเวลา 12 เดือน และแสดงปีให้ชัดเจนเมื่อรอบข้ามปี</div></article>
+      <article className="panel preview-panel"><span className="panel-kicker">PLAN PREVIEW</span><h2>รอบที่เสนอ</h2>{preview.isFetching ? <p>กำลังคำนวณรอบ…</p> : preview.data ? <div className="month-grid">{preview.data.display_periods_th.map((period) => <span key={period}>{period}</span>)}</div> : <p>ไม่สามารถคำนวณ Preview ได้</p>}{preview.error && <div className="login-error">{preview.error.message}</div>}<div className="scope-note">ระบบคำนวณใหม่อัตโนมัติเมื่อเปลี่ยนปี จำนวนครั้ง หรือเดือนเริ่มต้น และแสดงปีให้ชัดเจนเมื่อรอบข้ามปี</div></article>
     </section>
   </>
 }
