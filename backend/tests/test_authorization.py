@@ -70,6 +70,31 @@ def test_admin_can_create_hospital(db) -> None:
         app.dependency_overrides.clear()
 
 
+def test_admin_can_create_multiple_hospitals_in_sequence(db) -> None:
+    admin = make_user(db, "admin-multiple-hospitals@example.com", Role.ADMIN)
+    client = client_for(db)
+    headers = {"Authorization": f"Bearer {create_access_token(admin)}"}
+    try:
+        first = client.post(
+            "/api/v1/hospitals",
+            headers=headers,
+            json={"hospital_name": " โรงพยาบาลลำดับหนึ่ง "},
+        )
+        second = client.post(
+            "/api/v1/hospitals",
+            headers=headers,
+            json={"hospital_name": "โรงพยาบาลลำดับสอง"},
+        )
+
+        assert first.status_code == 201
+        assert second.status_code == 201
+        assert first.json()["hospital_name"] == "โรงพยาบาลลำดับหนึ่ง"
+        assert second.json()["hospital_name"] == "โรงพยาบาลลำดับสอง"
+        assert first.json()["hospital_code"] != second.json()["hospital_code"]
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_admin_me_accepts_internal_legacy_email(db) -> None:
     admin = User(
         username="admin",

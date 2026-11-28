@@ -56,6 +56,14 @@ class HospitalCreate(BaseModel):
     def empty_hospital_code_is_none(cls, value: object) -> object:
         return None if isinstance(value, str) and not value.strip() else value
 
+    @field_validator("hospital_name")
+    @classmethod
+    def normalize_hospital_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("กรุณากรอกชื่อโรงพยาบาล")
+        return normalized
+
 
 class HospitalUpdate(BaseModel):
     hospital_name: str | None = Field(default=None, min_length=1, max_length=255)

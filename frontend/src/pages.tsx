@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowUpRight, CalendarCheck2, CircleCheckBig, Clock3, Layers3, RefreshCcw, Wrench } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { api, type Metrics } from './lib/api'
 import { getBangkokDate } from './lib/date'
 
@@ -100,9 +100,16 @@ export function HospitalsPage() {
   const client = useQueryClient()
   const query = useQuery({ queryKey: ['hospitals', 'active'], queryFn: () => api<Hospital[]>('/hospitals?active=true') })
   const [form, setForm] = useState({ hospital_code: '', hospital_name: '' })
+  const [savedHospital, setSavedHospital] = useState('')
+  const hospitalNameInput = useRef<HTMLInputElement>(null)
   const create = useMutation({
-    mutationFn: () => api<Hospital>('/hospitals', { method: 'POST', body: JSON.stringify({ ...form, hospital_code: form.hospital_code.trim() || null }) }),
-    onSuccess: () => { setForm({ hospital_code: '', hospital_name: '' }); client.invalidateQueries({ queryKey: ['hospitals'] }) },
+    mutationFn: () => api<Hospital>('/hospitals', { method: 'POST', body: JSON.stringify({ ...form, hospital_name: form.hospital_name.trim(), hospital_code: form.hospital_code.trim() || null }) }),
+    onSuccess: async (hospital) => {
+      setSavedHospital(hospital.hospital_name)
+      setForm({ hospital_code: '', hospital_name: '' })
+      await client.invalidateQueries({ queryKey: ['hospitals'] })
+      hospitalNameInput.current?.focus()
+    },
   })
   return <>
     <section className="page-heading"><div><p className="eyebrow">MASTER DATA</p><h1>โรงพยาบาล</h1><p>ระบบสร้างรหัสภายในอัตโนมัติ และใช้ aliases เพื่อจับคู่ชื่อจากตารางช่าง</p></div></section>
@@ -112,9 +119,10 @@ export function HospitalsPage() {
       </article>
       <form className="panel form-panel" onSubmit={(event) => { event.preventDefault(); create.mutate() }}>
         <div><span className="panel-kicker">ADD MASTER DATA</span><h2>เพิ่มโรงพยาบาล</h2></div>
-        <label>ชื่อโรงพยาบาล<input value={form.hospital_name} onChange={(event) => setForm({ ...form, hospital_name: event.target.value })} required /></label>
+        <label>ชื่อโรงพยาบาล<input ref={hospitalNameInput} value={form.hospital_name} onChange={(event) => { setForm({ ...form, hospital_name: event.target.value }); setSavedHospital(''); create.reset() }} required /></label>
+        {savedHospital && <div className="success-note">บันทึก {savedHospital} แล้ว · กรอกโรงพยาบาลถัดไปได้เลย</div>}
         {create.error && <div className="login-error">{create.error.message}</div>}
-        <button className="primary" disabled={create.isPending}>บันทึกโรงพยาบาล</button>
+        <button className="primary" disabled={create.isPending || !form.hospital_name.trim()}>บันทึกโรงพยาบาล</button>
       </form>
     </section>
   </>
@@ -259,6 +267,8 @@ export function DatabaseEntryPage() {
     hospitals.data?.map((hospital) => hospital.id),
   );
   const [hospitalForm, setHospitalForm] = useState({ hospital_name: "" });
+  const [savedHospital, setSavedHospital] = useState("");
+  const hospitalNameInput = useRef<HTMLInputElement>(null);
   const [equipmentForm, setEquipmentForm] = useState({
     hospital_id: "",
     equipment_name: "",
@@ -286,9 +296,15 @@ export function DatabaseEntryPage() {
         method: "POST",
         body: JSON.stringify(hospitalForm),
       }),
-    onSuccess: () => {
+    onSuccess: async (hospital) => {
+      setSavedHospital(hospital.hospital_name);
       setHospitalForm({ hospital_name: "" });
-      client.invalidateQueries({ queryKey: ["hospitals"] });
+      setEquipmentForm((current) => ({
+        ...current,
+        hospital_id: hospital.id,
+      }));
+      await client.invalidateQueries({ queryKey: ["hospitals"] });
+      hospitalNameInput.current?.focus();
     },
   });
   const updateHospital = useMutation({
@@ -453,16 +469,26 @@ export function DatabaseEntryPage() {
           <label>
             ชื่อโรงพยาบาล
             <input
+              ref={hospitalNameInput}
               value={hospitalForm.hospital_name}
-              onChange={(event) =>
+              onChange={(event) => {
                 setHospitalForm({
                   ...hospitalForm,
                   hospital_name: event.target.value,
-                })
-              }
+                });
+                setSavedHospital("");
+                createHospital.reset();
+                updateHospital.reset();
+              }}
               required
             />
           </label>
+          {savedHospital && !editingHospital && (
+            <div className="success-note">
+              บันทึก {savedHospital} แล้ว · ระบบเลือกโรงพยาบาลนี้ในขั้นเพิ่มอุปกรณ์ให้แล้ว
+              และสามารถกรอกโรงพยาบาลถัดไปได้ทันที
+            </div>
+          )}
           {(createHospital.error || updateHospital.error) && (
             <div className="login-error">
               {(createHospital.error || updateHospital.error)?.message}
@@ -470,7 +496,11 @@ export function DatabaseEntryPage() {
           )}
           <button
             className="primary"
-            disabled={createHospital.isPending || updateHospital.isPending}
+            disabled={
+              createHospital.isPending ||
+              updateHospital.isPending ||
+              !hospitalForm.hospital_name.trim()
+            }
           >
             {editingHospital ? "บันทึกการแก้ไข" : "บันทึกโรงพยาบาล"}
           </button>

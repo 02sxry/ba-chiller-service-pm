@@ -170,3 +170,12 @@ Docker build ครั้งแรกใน execution environment ติด prox
 - แยกคำสั่งรันปกติ คำสั่งหลัง `git pull` การตรวจ health การซ่อม Admin และ Worker/Scheduler ชัดเจน
 - ไม่ฝังรหัสผ่านฐานข้อมูลหรือ secret ลงในไฟล์
 
+## ตรวจการเพิ่มโรงพยาบาลต่อเนื่อง — 28 พฤศจิกายน 2026
+
+- เพิ่ม regression test สำหรับสร้างโรงพยาบาลสองรายการต่อเนื่อง โดยให้ Backend สร้างรหัสภายในคนละค่า
+- Backend ตัดช่องว่างหัวท้ายชื่อโรงพยาบาล และ rollback transaction เมื่อรหัสชนกัน
+- หน้าโรงพยาบาลและหน้า Admin ล้างช่องและโฟกัสกลับหลังบันทึก พร้อมแสดงข้อความว่าสามารถกรอกรายการถัดไปได้
+- หน้า Admin เลือกโรงพยาบาลที่เพิ่งสร้างในฟอร์มเพิ่มอุปกรณ์ให้อัตโนมัติ
+- `ruff check app tests alembic --exclude alembic/versions`, Python compile และ Frontend production build ผ่าน
+- SQL Server integration test ยังรันไม่ได้ใน execution host เพราะไม่มี Microsoft ODBC Driver 18; เพิ่ม test ไว้ให้รันซ้ำบนเครื่อง SQLEXPRESS ของผู้ใช้
+

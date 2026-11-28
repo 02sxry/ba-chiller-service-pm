@@ -293,6 +293,7 @@ def create_hospital(request: HospitalCreate, db: Db, admin: AdminUser) -> Hospit
     try:
         db.flush()
     except IntegrityError as exc:
+        db.rollback()
         raise HTTPException(status_code=409, detail="รหัสโรงพยาบาลซ้ำ") from exc
     record_audit(
         db, actor=admin, action="HOSPITAL_CREATED", entity_type="hospital",
