@@ -1,0 +1,101 @@
+BA_PMnotification - คำสั่งเปิดระบบบนโน้ตบุ๊ก (Git Bash / Windows)
+================================================================
+
+หมายเหตุ
+- เปิดแค่ Backend และ Frontend จำนวน 2 หน้าต่างก็ใช้หน้าเว็บได้
+- SSMS ปิดได้ แต่ SQL Server (SQLEXPRESS) ต้องทำงานอยู่
+- กด Ctrl+C ในแต่ละหน้าต่างเมื่อต้องการหยุดระบบ
+
+
+1) อัปเดตโค้ดล่าสุด (ทำก่อนเปิดระบบ)
+-------------------------------------
+
+cd ~/Desktop/ba-chiller-service-pm
+git pull origin main
+
+
+2) หน้าต่าง Git Bash ที่ 1 - เปิด Backend
+------------------------------------------
+
+cd ~/Desktop/ba-chiller-service-pm/backend
+source .venv/Scripts/activate
+python -m uvicorn app.main:app --reload
+
+Backend: http://127.0.0.1:8000
+API Docs: http://127.0.0.1:8000/api/docs
+
+
+3) หน้าต่าง Git Bash ที่ 2 - เปิด Frontend
+-------------------------------------------
+
+cd ~/Desktop/ba-chiller-service-pm/frontend
+npm run dev
+
+เปิดเว็บ: http://localhost:5173
+
+
+4) หลัง git pull ถ้ามีการอัปเดต package หรือฐานข้อมูล
+---------------------------------------------------
+
+หยุด Backend และ Frontend ด้วย Ctrl+C ก่อน แล้วรันคำสั่งชุดนี้
+
+cd ~/Desktop/ba-chiller-service-pm/backend
+source .venv/Scripts/activate
+python -m pip install -e .
+python -m alembic upgrade head
+
+cd ~/Desktop/ba-chiller-service-pm/frontend
+npm install
+
+จากนั้นกลับไปรัน Backend และ Frontend ตามข้อ 2 และ 3
+
+
+5) ตรวจว่า Backend และฐานข้อมูลพร้อม
+-----------------------------------
+
+curl -i http://127.0.0.1:8000/api/v1/health
+
+ผลที่ถูกต้องต้องมี
+"status":"ok"
+"database":"ok"
+
+
+6) ถ้า admin/admin เข้าไม่ได้
+-----------------------------
+
+cd ~/Desktop/ba-chiller-service-pm/backend
+source .venv/Scripts/activate
+python -m app.cli ensure-admin
+
+จากนั้นหยุดและเปิด Backend ใหม่ แล้วเข้าด้วย
+User ID: admin
+Password: admin
+
+
+7) Worker และ Scheduler (ยังไม่ต้องเปิดสำหรับกรอกข้อมูลทั่วไป)
+----------------------------------------------------------
+
+เปิด Git Bash เพิ่มอีก 2 หน้าต่างเมื่อต้องทดสอบการแจ้งเตือนและงานตามเวลา
+
+หน้าต่าง Worker:
+
+cd ~/Desktop/ba-chiller-service-pm/backend
+source .venv/Scripts/activate
+python -m app.worker
+
+หน้าต่าง Scheduler:
+
+cd ~/Desktop/ba-chiller-service-pm/backend
+source .venv/Scripts/activate
+python -m app.scheduler
+
+
+8) ถ้ายังไม่มี .venv (ใช้เฉพาะตอนติดตั้ง Backend ครั้งแรก)
+---------------------------------------------------------
+
+cd ~/Desktop/ba-chiller-service-pm/backend
+python -m venv .venv
+source .venv/Scripts/activate
+python -m pip install -e .
+python -m alembic upgrade head
+

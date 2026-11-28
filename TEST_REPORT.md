@@ -164,3 +164,9 @@ Docker build ครั้งแรกใน execution environment ติด prox
 - `git diff --check` และ `npm run build` ผ่าน
 - `npm run lint` ยังรันไม่ได้เพราะ repository ไม่มี `eslint.config.js`; ไม่ได้นับเป็นผลผ่าน
 
+## ตรวจไฟล์คำสั่งเปิดระบบ — 28 พฤศจิกายน 2026
+
+- เพิ่ม `RUN_COMMANDS.txt` สำหรับ Git Bash บน Windows โดยใช้ path ของ repository ปัจจุบัน
+- แยกคำสั่งรันปกติ คำสั่งหลัง `git pull` การตรวจ health การซ่อม Admin และ Worker/Scheduler ชัดเจน
+- ไม่ฝังรหัสผ่านฐานข้อมูลหรือ secret ลงในไฟล์
+
